@@ -1,0 +1,19 @@
+[project]
+name = "run-investigation-agent"
+version = "0.1.0"
+description = "An agent that investigates another agent's run and reports what went wrong, with evidence."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.143.2",
+    "uvicorn>=0.54.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.1",
+    "anthropic>=1.15.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=9.1.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

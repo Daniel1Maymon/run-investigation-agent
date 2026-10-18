@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run Investigation Agent</title>
+<style>
+  :root {
+    --bg: #f4f6f7; --surface: #ffffff; --fg: #17232a; --muted: #5d6c75;
+    --rule: #d6dde1; --accent: #0f6b7a; --ok: #1d7a46; --ok-soft: #e1f3e8;
+    --bad: #b3261e; --bad-soft: #fbe4e2; --warn-soft: #fff4d6; --warn: #8a5a00;
+    --mono: ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10181d; --surface: #172229; --fg: #e3eaee; --muted: #9aabb5;
+      --rule: #2a3a44; --accent: #4fc0cf; --ok: #5fd18f; --ok-soft: #173826;
+      --bad: #ff8a80; --bad-soft: #3d1c1a; --warn-soft: #3a2f12; --warn: #f0c35a;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.55 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 20px; }
+  h1 { font-size: 22px; margin: 0; }
+  .sub { color: var(--muted); margin: 4px 0 0; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; }
+  label { position: absolute; left: -9999px; }
+  input { flex: 1 1 320px; min-width: 0; padding: 10px 12px; font: 14px var(--mono);
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--fg); }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { padding: 10px 20px; font: inherit; font-weight: 600; border: 0; border-radius: 8px;
+    background: var(--accent); color: var(--surface); cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 14px; }
+  .msg { padding: 12px 14px; border-radius: 8px; }
+  .msg.error { background: var(--bad-soft); color: var(--bad); }
+  .msg.hint { background: var(--warn-soft); color: var(--warn); }
+  .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pill { font-weight: 700; font-size: 13px; padding: 3px 10px; border-radius: 999px; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.bad { background: var(--bad-soft); color: var(--bad); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 0; }
+  .facts div { min-width: 0; }
+  dt { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 4px; }
+  .text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: 10px 12px;
+    background: var(--bg); border-radius: 8px; max-height: 260px; overflow: auto; }
+  .text.err { background: var(--bad-soft); color: var(--bad); }
+  .later { color: var(--muted); font-style: italic; margin: 0; }
+  code { font-family: var(--mono); font-size: .9em; }
+  .picker { position: relative; }
+  button.secondary { background: var(--surface); color: var(--fg); border: 1px solid var(--rule); font-weight: 500; }
+  button.secondary[aria-expanded="true"] { border-color: var(--accent); }
+  .sessions { list-style: none; margin: 0; padding: 8px; display: grid; gap: 6px; max-height: 420px; overflow: auto;
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 10;
+    background: var(--bg); border: 1px solid var(--rule); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .sessions[hidden] { display: none; }
+  .sessions > li.row { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-width: 0; }
+  .sessions > li.row:hover, .sessions > li.row:focus { border-color: var(--accent); outline: none; }
+  .row-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+  .row-prompt { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .muted { color: var(--muted); }
+  .runs { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+  .runs li { padding: 4px 8px; border-radius: 6px; background: var(--bg); font-size: 13px; }
+  .runs li:hover { outline: 1px solid var(--accent); }
+  .pill.unk { background: var(--warn-soft); color: var(--warn); }
+  .findings, .steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  .tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    padding: 1px 6px; border-radius: 4px; background: var(--bg); color: var(--muted); }
+  .tag.suspicion { background: var(--warn-soft); color: var(--warn); }
+  .steps { font: 13px var(--mono); color: var(--muted); }
+  .steps .bad-step { color: var(--bad); }
+  .report { display: grid; gap: 14px; justify-items: start; }
+  .report > * { justify-self: stretch; }
+  .report > button { justify-self: start; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Run Investigation Agent</h1>
+    <p class="sub">Paste the ID of one agent run, or pick one from Sessions.</p>
+  </header>
+
+  <div class="picker">
+  <form id="form">
+    <label for="run-id">Run ID</label>
+    <input id="run-id" placeholder="Run ID, or type to search sessions" autocomplete="off" spellcheck="false">
+    <button id="check" type="submit">Check</button>
+    <button id="sessions-toggle" class="secondary" type="button" aria-expanded="false" aria-controls="sessions">Sessions ▾</button>
+  </form>
+
+  <ul id="sessions" class="sessions" hidden></ul>
+  </div>
+
+  <div id="out"></div>
+</main>
+
+<script>
+// Thin by design: it only displays what GET /sessions, GET /runs/{id} and
+// POST /runs/{id}/investigate return.
+// See docs/decisions/0002 and 0003.
+// Run content is evidence, never markup: everything is written with textContent.
+const $ = (id) => document.getElementById(id);
+const out = $("out");
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+const show = (v) => (v === null || v === undefined || v === "" ? "—" : String(v));
+
+function message(kind, text) {
+  out.replaceChildren(el("div", "msg " + kind, text));
+}
+
+function block(title, text, cls) {
+  const s = el("section");
+  s.append(el("h2", null, title));
+  const p = el("p", "text" + (cls ? " " + cls : ""), show(text));
+  p.dir = "auto";  // Hebrew and English both read the right way
+  s.append(p);
+  return s;
+}
+
+function render(run) {
+  const card = el("div", "card");
+
+  const head = el("div", "head");
+  const ok = run.ok === 1 || run.status === "success";
+  head.append(el("span", "pill " + (ok ? "ok" : "bad"), ok ? "✓ " + show(run.status) : "✗ " + show(run.status)));
+  head.append(el("code", null, show(run.run_id)));
+  card.append(head);
+
+  const facts = el("dl", "facts");
+  const secs = run.duration_ms == null ? null : (run.duration_ms / 1000).toFixed(1) + " s";
+  const cost = run.cost_usd == null ? null : "$" + Number(run.cost_usd).toFixed(4);
+  const tools = run.tool_count == null ? null :
+    run.tool_count + (run.error_tool_count ? " (" + run.error_tool_count + " failed)" : "");
+  for (const [k, v] of [["Agent", run.agent], ["Model", run.model], ["Trigger", run.trigger],
+                        ["Started", run.started_ts], ["Duration", secs], ["Cost", cost],
+                        ["Tool calls", tools], ["Messages", run.msg_count]]) {
+    const d = el("div");
+    d.append(el("dt", null, k), el("dd", null, show(v)));
+    facts.append(d);
+  }
+  card.append(facts);
+
+  card.append(block("What was asked", run.user_text));
+  card.append(block("What the agent replied", run.reply_text));
+  if (run.error_text) card.append(block("Error", run.error_text, "err"));
+
+  card.append(reportSection(run.run_id));
+
+  out.replaceChildren(card);
+}
+
+async function check(id) {
+  const btn = $("check");
+  btn.disabled = true;
+  message("hint", "Fetching run…");
+  try {
+    const r = await fetch("/runs/" + encodeURIComponent(id));
+    const body = await r.json().catch(() => ({}));
+    if (r.ok) render(body);
+    else if (r.status === 404) message("error", "Run not found: no run has the ID " + id + ".");
+    else if (r.status === 503) message("error", "Can't reach the trace viewer. " + show(body.detail));
+    else message("error", "Something went wrong (HTTP " + r.status + "). " + show(body.detail));
+  } catch (e) {
+    message("error", "Can't reach this app's server. Is it still running?");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const id = $("run-id").value.trim();
+  if (!id) { message("hint", "Paste a run ID first."); $("run-id").focus(); return; }
+  setMenu(false);
+  history.replaceState(null, "", "?run=" + encodeURIComponent(id));
+  check(id);
+});
+
+// ---- Investigation (TEST_PLAN cases 34–35) ----
+function reportSection(runId) {
+  const rep = el("section");
+  rep.append(el("h2", null, "Investigation report"));
+  const body = el("div", "report");
+  const btn = el("button", null, "Investigate");
+  btn.type = "button";
+  btn.id = "investigate";
+  btn.addEventListener("click", () => investigate(runId, btn, body));
+  body.append(el("p", "later", "The AI investigator reads this run through its tools and writes a "
+                 + "report. It can take a minute or two, and each investigation costs a little."), btn);
+  rep.append(body);
+  return rep;
+}
+
+async function investigate(runId, btn, body) {
+  btn.disabled = true;
+  body.replaceChildren(el("div", "msg hint", "Investigating… this can take a minute or two."));
+  try {
+    const r = await fetch("/runs/" + encodeURIComponent(runId) + "/investigate", { method: "POST" });
+    const res = await r.json().catch(() => ({}));
+    if (r.ok) body.replaceChildren(...renderInvestigation(res), btn);
+    else body.replaceChildren(el("div", "msg error", "Investigation failed (HTTP " + r.status + "). "
+                                  + show(res.detail)), btn);
+  } catch (e) {
+    body.replaceChildren(el("div", "msg error", "Can't reach this app's server. Is it still running?"), btn);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Investigate again";
+  }
+}
+
+const OUTCOMES = { success: ["ok", "✓ success"], failure: ["bad", "✗ failure"],
+                   insufficient_evidence: ["unk", "? insufficient evidence"] };
+
+function renderInvestigation(res) {
+  const parts = [];
+  if (res.status !== "done") {
+    parts.push(el("div", "msg error", "Stopped without a report: " + show(res.reason) + "."));
+  } else {
+    const rp = res.report;
+    const [cls, label] = OUTCOMES[rp.outcome] || ["unk", rp.outcome];
+    const head = el("div", "head");
+    head.append(el("span", "pill " + cls, label));
+    parts.push(head, block("Summary", rp.summary));
+    const list = el("ul", "findings");
+    for (const f of rp.findings) {
+      const li = el("li");
+      li.dir = "auto";
+      li.append(el("span", "tag " + f.kind, f.kind), " " + f.what + " ",
+                el("span", "muted", "· events " + (f.evidence.length ? f.evidence.join(", ") : "—")));
+      list.append(li);
+    }
+    const fs = el("section");
+    fs.append(el("h2", null, "Findings"), list);
+    parts.push(fs);
+    if (rp.suspected_cause) parts.push(block("Suspected cause", rp.suspected_cause));
+    parts.push(block("Next step", rp.next_step));
+  }
+  const how = el("section");
+  how.append(el("h2", null, "How it got there · " + res.model + " · " + res.model_calls
+                + " model calls · " + res.seconds + " s"));
+  const ol = el("ol", "steps");
+  for (const s of res.steps) {
+    const what = s.tool ? s.tool + (Object.keys(s.input).length ? " " + JSON.stringify(s.input) : "")
+                        : "final answer";
+    ol.append(el("li", s.ok ? null : "bad-step", what + (s.ok ? "" : " — " + show(s.note))));
+  }
+  how.append(ol);
+  parts.push(how);
+  return parts;
+}
+
+// ---- Session list (TEST_PLAN cases 15–16) ----
+let sessions = null;  // loaded the first time the menu opens; null = not loaded (keep the error shown)
+let loading = false;
+
+function setMenu(open) {
+  $("sessions").hidden = !open;
+  $("sessions-toggle").setAttribute("aria-expanded", String(open));
+  if (open && sessions === null && !loading) loadSessions();
+}
+
+async function loadSessions() {
+  loading = true;
+  const list = $("sessions");
+  list.replaceChildren(el("li", "msg hint", "Loading sessions…"));
+  try {
+    const r = await fetch("/sessions");
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const why = "Can't load the session list" + (r.status === 503 ? ". " : " (HTTP " + r.status + "). ");
+      list.replaceChildren(el("li", "msg error", why + show(body.detail)));
+      return;
+    }
+    sessions = body;
+    renderList($("run-id").value);
+  } catch (e) {
+    list.replaceChildren(el("li", "msg error", "Can't reach this app's server. Is it still running?"));
+  } finally {
+    loading = false;
+  }
+}
+
+function renderList(text) {
+  if (sessions === null) return;
+  const q = text.trim().toLowerCase();
+  const match = (s) => !q
+    || s.session_id.toLowerCase().includes(q)
+    || s.runs.some((r) => r.run_id.toLowerCase().includes(q))
+    || s.first_prompt.toLowerCase().includes(q);
+  const rows = sessions.filter(match).slice(0, 50);  // draw at most 50 rows
+  const list = $("sessions");
+  if (!rows.length) {
+    list.replaceChildren(el("li", "msg hint", sessions.length ? "No session matches." : "No sessions."));
+    return;
+  }
+  list.replaceChildren(...rows.map((s) => {
+    const li = el("li", "row");
+    li.tabIndex = 0;
+    const top = el("div", "row-top");
+    const ok = s.status === "ok";
+    top.append(
+      el("span", "pill " + (ok ? "ok" : "bad"), ok ? "✓ ok" : "✗ failed"),
+      el("code", null, s.session_id.slice(0, 8) + "…"),
+      el("span", "muted", show(s.agent) + " · " + show(s.started_ts).slice(0, 16).replace("T", " ")));
+    if (s.runs.length > 1) top.append(el("span", "muted", s.runs.length + " runs ▸"));
+    const prompt = el("div", "row-prompt", show(s.first_prompt));
+    prompt.dir = "auto";
+    li.append(top, prompt);
+    li.addEventListener("click", () => onRowClick(s, li));
+    li.addEventListener("keydown", (e) => { if (e.key === "Enter") onRowClick(s, li); });
+    return li;
+  }));
+}
+
+function onRowClick(s, li) {
+  if (s.runs.length === 1) { openRun(s.runs[0].run_id); return; }
+  // Several runs: list them under the row (oldest first) so one can be picked.
+  const open = li.querySelector(".runs");
+  if (open) { open.remove(); return; }
+  const sub = el("ul", "runs");
+  s.runs.forEach((r, i) => {
+    const ok = r.status === "success";
+    const b = el("li", null, (ok ? "✓ " : "✗ ") + "Run " + (i + 1) + " · " + show(r.status) + " · "
+                 + show(r.started_ts).slice(11, 16) + " · " + r.run_id.slice(0, 8) + "…");
+    b.addEventListener("click", (e) => { e.stopPropagation(); openRun(r.run_id); });
+    sub.append(b);
+  });
+  li.append(sub);
+}
+
+function openRun(id) {
+  // Same as typing the id and clicking Check.
+  setMenu(false);
+  $("run-id").value = id;
+  history.replaceState(null, "", "?run=" + encodeURIComponent(id));
+  check(id);
+}
+
+// Typing searches the sessions, so it opens the menu; Esc, a click outside, or Check close it.
+$("sessions-toggle").addEventListener("click", () => setMenu($("sessions").hidden));
+$("run-id").addEventListener("input", (e) => { setMenu(true); renderList(e.target.value); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") setMenu(false); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".picker")) setMenu(false); });
+
+// Open a run straight from a link: /?run=<id>
+const fromLink = new URLSearchParams(location.search).get("run");
+if (fromLink) { $("run-id").value = fromLink; check(fromLink); }
+</script>
+</body>
+</html>

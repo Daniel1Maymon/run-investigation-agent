@@ -1,0 +1,53 @@
+"""TEST_PLAN.md cases 3–5, 12 and 14."""
+import json
+from pathlib import Path
+
+import pytest
+
+from app.adapters import openclaw
+from tests.conftest import RUN
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_case3_existing_run_returned_unchanged(viewer):
+    assert openclaw.fetch_run(viewer, "r1") == RUN
+
+
+def test_case4_missing_run_raises_run_not_found(viewer):
+    with pytest.raises(openclaw.RunNotFound, match="nope"):
+        openclaw.fetch_run(viewer, "nope")
+
+
+def test_case5_unreachable_viewer_points_at_the_tunnel(dead_viewer):
+    with pytest.raises(openclaw.ViewerUnavailable, match="dash"):
+        openclaw.fetch_run(dead_viewer, "r1")
+
+
+def test_case5_viewer_error_is_unavailable(viewer):
+    with pytest.raises(openclaw.ViewerUnavailable, match="500"):
+        openclaw.fetch_run(viewer, "boom")
+
+# Cases 12 and 14 — the session list.
+
+def test_case12_ok_session_is_slimmed(viewer):
+    assert openclaw.list_sessions(viewer)[0] == {
+        "session_id": "s1", "agent": "nunu", "started_ts": "2026-10-17T06:00:00Z",
+        "status": "ok", "failed_runs": 0, "first_prompt": "hello",
+        "runs": [{"run_id": "r1", "status": "success", "started_ts": "2026-10-17T06:00:00Z"}]}
+
+def test_case12_one_failed_run_fails_the_session(viewer):
+    s = openclaw.list_sessions(viewer)[1]
+    assert s["status"] == "failed" and s["failed_runs"] == 1
+    assert [r["run_id"] for r in s["runs"]] == ["r2", "r3"]
+    assert s["first_prompt"] == ""
+
+def test_case12_unreachable_viewer_points_at_the_tunnel(dead_viewer):
+    with pytest.raises(openclaw.ViewerUnavailable, match="dash"):
+        openclaw.list_sessions(dead_viewer)
+
+def test_case14_real_viewer_answer_slims_without_errors():
+    rows = json.loads((FIXTURES / "api_runs_sample.json").read_text())["rows"]
+    slim = [openclaw._slim_session(r) for r in rows]
+    assert slim
+    assert all(s["status"] in ("ok", "failed") and s["runs"] for s in slim)

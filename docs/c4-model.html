@@ -1,0 +1,396 @@
+<title>Investigation Agent C4 Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow reading column; four "zoom level" sections, each a short explanation + one wide diagram. */
+:root {
+  --bg: #f5f7f8;
+  --surface: #ffffff;
+  --fg: #16232b;
+  --muted: #5b6b75;
+  --line: #3b4d58;
+  --rule: #d5dde2;
+  --accent: #0f6b7a;
+  --accent-soft: #dcefF1;
+  --person: #a1560f;
+  --person-soft: #fbeedd;
+  --ext-soft: #e8ecef;
+  --later: #8a979f;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f171c; --surface: #16222a; --fg: #e3eaee; --muted: #9aabb5;
+    --line: #a9bac4; --rule: #2a3a44; --accent: #4fc0cf; --accent-soft: #143a42;
+    --person: #f0a65a; --person-soft: #3a2a17; --ext-soft: #1f2c34; --later: #6f818c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f171c; --surface: #16222a; --fg: #e3eaee; --muted: #9aabb5;
+  --line: #a9bac4; --rule: #2a3a44; --accent: #4fc0cf; --accent-soft: #143a42;
+  --person: #f0a65a; --person-soft: #3a2a17; --ext-soft: #1f2c34; --later: #6f818c;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 40px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 56px; }
+header { display: grid; gap: 14px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(30px, 6vw, 44px); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 26px; line-height: 1.2; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 65ch; }
+.lead { font-size: 18px; color: var(--fg); }
+code { font-family: var(--f-mono); font-size: .88em; background: var(--ext-soft); padding: 1px 5px; border-radius: 4px; }
+
+/* zoom ladder */
+.ladder { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.ladder a { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--fg); text-decoration: none; }
+.ladder a:hover, .ladder a:focus-visible { border-color: var(--accent); outline: none; }
+.ladder b { font-family: var(--f-display); font-size: 15px; }
+.ladder span { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.ladder .n { font-family: var(--f-mono); font-size: 11px; color: var(--accent); letter-spacing: .06em; }
+@media (max-width: 620px) { .ladder { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; color: var(--muted); }
+.legend i { display: inline-block; width: 26px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+.lg-built { background: var(--accent-soft); border: 2px solid var(--accent); }
+.lg-ext { background: var(--ext-soft); border: 2px solid var(--line); }
+.lg-later { border: 2px dashed var(--later); }
+.lg-person { background: var(--person-soft); border: 2px solid var(--person); }
+
+section { display: grid; gap: 16px; scroll-margin-top: 16px; }
+.lvl { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.lvl .n { font-family: var(--f-mono); font-size: 13px; color: var(--accent); letter-spacing: .06em; text-transform: uppercase; }
+.q { font-weight: 600; }
+ul.points { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 65ch; }
+.diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px; }
+.diagram svg { display: block; width: 100%; min-width: 640px; height: auto; }
+
+/* svg tokens */
+svg text { font-family: var(--f-body); fill: var(--fg); }
+svg .t { font-family: var(--f-display); font-weight: 700; font-size: 16px; }
+svg .s { font-size: 13px; fill: var(--muted); }
+svg .m { font-family: var(--f-mono); font-size: 12px; fill: var(--muted); }
+svg .lab { font-size: 12.5px; fill: var(--fg); }
+svg .lab-m { font-family: var(--f-mono); font-size: 11.5px; fill: var(--fg); }
+svg .lab-l { font-size: 12.5px; fill: var(--later); }
+svg .bnd-t { font-family: var(--f-mono); font-size: 12px; fill: var(--muted); letter-spacing: .05em; }
+svg .built { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+svg .ext { fill: var(--ext-soft); stroke: var(--line); stroke-width: 1.5; }
+svg .person { fill: var(--person-soft); stroke: var(--person); stroke-width: 2; }
+svg .later { fill: var(--surface); stroke: var(--later); stroke-width: 1.5; stroke-dasharray: 6 5; }
+svg .later-t { font-family: var(--f-display); font-weight: 700; font-size: 14px; fill: var(--later); }
+svg .bnd { fill: none; stroke: var(--rule); stroke-width: 2; stroke-dasharray: 2 6; stroke-linecap: round; }
+svg .arr { fill: none; stroke: var(--line); stroke-width: 1.6; }
+svg .arr-l { fill: none; stroke: var(--later); stroke-width: 1.5; stroke-dasharray: 5 5; }
+svg .ret { fill: none; stroke: var(--line); stroke-width: 1.4; stroke-dasharray: 4 4; }
+svg .life { stroke: var(--rule); stroke-width: 1.5; stroke-dasharray: 3 5; }
+svg .ah { fill: var(--line); }
+svg .ah-l { fill: var(--later); }
+svg .lbg { fill: var(--surface); }
+
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--f-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 500; }
+td.c { font-family: var(--f-mono); font-size: 13px; white-space: nowrap; }
+.ok { color: var(--accent); font-weight: 600; }
+.why { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; color: var(--fg); max-width: 65ch; }
+.intro { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 24px; gap: 12px; }
+.intro ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; max-width: 65ch; }
+footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-top: 1px solid var(--rule); padding-top: 20px; }
+</style>
+
+<div class="wrap">
+<section class="intro" aria-labelledby="what">
+  <div class="eyebrow">Start here</div>
+  <h2 id="what">What we're building</h2>
+  <p>An <b>AI agent</b> is a program that uses an AI model to do a task on its own. It reads a request, decides what steps to take, and uses tools like sending a message or reading a file. Each time it does a task is called a <b>run</b>, and everything it did during the run is recorded.</p>
+  <p>When a run goes wrong, a developer has to read that record by hand to find out why. That's slow.</p>
+  <p>This project is an <b>investigation agent</b>: an AI agent whose job is to investigate another agent's run. You give it the ID of one run. It reads the record and reports:</p>
+  <ol>
+    <li>Did the task actually work?</li>
+    <li>If not, what went wrong, pointing at the exact message or step.</li>
+    <li>What to check or fix next.</li>
+  </ol>
+  <p>It only reads. It never changes anything. The first agents it investigates run on <b>OpenClaw</b>, an agent platform. It gets their records from an existing tool called the <b>trace viewer</b>.</p>
+  <p><b>Where we are:</b> the foundation is built. It can already fetch any run from the trace viewer. The "brain" that reads the run and writes the diagnosis comes next.</p>
+</section>
+
+<header>
+  <div class="eyebrow">run-investigation-agent · skeleton · C4 model</div>
+  <h1>The investigation agent at four zoom levels</h1>
+  <p class="lead">The C4 model draws the same system four times, each one closer in, like zooming a map from country to city to street to building. Each level answers one question. You stop zooming when you have the answer you need.</p>
+  <nav class="ladder" aria-label="Zoom levels">
+    <a href="#context"><span class="n">Level 1</span><b>Context</b><span>Who uses it, and what does it talk to?</span></a>
+    <a href="#containers"><span class="n">Level 2</span><b>Containers</b><span>What runs, and where?</span></a>
+    <a href="#components"><span class="n">Level 3</span><b>Components</b><span>What are the parts inside our app?</span></a>
+    <a href="#code"><span class="n">Level 4</span><b>Code</b><span>Which functions run, in what order?</span></a>
+  </nav>
+  <div class="legend">
+    <span><i class="lg-built"></i>Built and tested</span>
+    <span><i class="lg-ext"></i>Already exists, not ours</span>
+    <span><i class="lg-later"></i>Planned, not built yet</span>
+    <span><i class="lg-person"></i>A person</span>
+  </div>
+</header>
+
+<!-- LEVEL 1 -->
+<section id="context">
+  <div class="lvl"><span class="n">Level 1</span><h2>Context</h2></div>
+  <p class="q">Who uses it, and what does it talk to?</p>
+  <p>Our whole system is one box. No technology, no files. Just the people and the outside systems around it.</p>
+  <div class="diagram">
+  <svg viewBox="0 0 760 290" role="img" aria-label="Context diagram: Daniel gives a run ID to the Run Investigation Agent, which reads run data from the existing OpenClaw trace viewer, and later will ask an AI model.">
+    <defs>
+      <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="a1l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah-l" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+    <rect class="person" x="16" y="105" width="150" height="80" rx="40"/>
+    <text class="t" x="91" y="140" text-anchor="middle">Daniel</text>
+    <text class="s" x="91" y="160" text-anchor="middle">picks a run to check</text>
+
+    <rect class="built" x="262" y="90" width="236" height="110" rx="10"/>
+    <text class="t" x="380" y="130" text-anchor="middle">Run Investigation Agent</text>
+    <text class="s" x="380" y="152" text-anchor="middle">reads one run and says</text>
+    <text class="s" x="380" y="170" text-anchor="middle">what went wrong</text>
+
+    <rect class="ext" x="584" y="30" width="160" height="96" rx="10"/>
+    <text class="t" x="664" y="66" text-anchor="middle">Trace viewer</text>
+    <text class="s" x="664" y="86" text-anchor="middle">holds every OpenClaw</text>
+    <text class="s" x="664" y="104" text-anchor="middle">run · on Hetzner</text>
+
+    <rect class="later" x="584" y="176" width="160" height="84" rx="10"/>
+    <text class="later-t" x="664" y="210" text-anchor="middle">AI model (LLM)</text>
+    <text class="s" x="664" y="230" text-anchor="middle">not chosen yet</text>
+
+    <path class="arr" d="M166 145 L258 145" marker-end="url(#a1)"/>
+    <text class="lab" x="212" y="133" text-anchor="middle">run ID in</text>
+    <text class="lab" x="212" y="166" text-anchor="middle">report out</text>
+
+    <path class="arr" d="M498 118 L580 82" marker-end="url(#a1)"/>
+    <text class="lab" x="530" y="86" text-anchor="middle">reads runs</text>
+
+    <path class="arr-l" d="M498 172 L580 210" marker-end="url(#a1l)"/>
+    <text class="lab-l" x="530" y="215" text-anchor="middle">later</text>
+  </svg>
+  </div>
+  <ul class="points">
+    <li>It only <b>reads</b>. Nothing in this picture lets it change OpenClaw or the server.</li>
+    <li>The trace viewer already existed. We reuse it instead of reading the raw files ourselves.</li>
+  </ul>
+</section>
+
+<!-- LEVEL 2 -->
+<section id="containers">
+  <div class="lvl"><span class="n">Level 2</span><h2>Containers</h2></div>
+  <p class="q">What runs, and where?</p>
+  <p>Zoom into the boxes. A "container" here is anything that runs on its own or stores data: an app, a server, a database. (It has nothing to do with Docker containers. Same word, different meaning.)</p>
+  <div class="diagram">
+  <svg viewBox="0 0 760 370" role="img" aria-label="Container diagram: on the Mac, the Investigation API calls through an SSH tunnel to the trace viewer web server on Hetzner, which reads the SQLite index and trajectory files.">
+    <defs>
+      <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+    <rect class="bnd" x="8" y="14" width="336" height="344" rx="14"/>
+    <text class="bnd-t" x="26" y="40">YOUR MAC</text>
+    <rect class="bnd" x="416" y="14" width="336" height="344" rx="14"/>
+    <text class="bnd-t" x="434" y="40">HETZNER SERVER</text>
+
+    <rect class="built" x="36" y="64" width="280" height="100" rx="10"/>
+    <text class="t" x="176" y="100" text-anchor="middle">Investigation API</text>
+    <text class="s" x="176" y="121" text-anchor="middle">our app · FastAPI</text>
+    <text class="m" x="176" y="142" text-anchor="middle">127.0.0.1:8000</text>
+
+    <rect class="ext" x="36" y="232" width="280" height="96" rx="10"/>
+    <text class="t" x="176" y="266" text-anchor="middle">SSH tunnel</text>
+    <text class="s" x="176" y="287" text-anchor="middle">opened by the dash command</text>
+    <text class="m" x="176" y="307" text-anchor="middle">127.0.0.1:8765 → server</text>
+
+    <rect class="ext" x="444" y="64" width="280" height="100" rx="10"/>
+    <text class="t" x="584" y="100" text-anchor="middle">Trace viewer server</text>
+    <text class="s" x="584" y="121" text-anchor="middle">plain Python, no libraries</text>
+    <text class="m" x="584" y="142" text-anchor="middle">GET /api/run/&lt;id&gt;</text>
+
+    <rect class="ext" x="444" y="232" width="280" height="96" rx="10"/>
+    <text class="t" x="584" y="266" text-anchor="middle">Run data</text>
+    <text class="s" x="584" y="287" text-anchor="middle">SQLite index +</text>
+    <text class="s" x="584" y="305" text-anchor="middle">trajectory files</text>
+
+    <path class="arr" d="M176 164 L176 228" marker-end="url(#a2)"/>
+    <rect class="lbg" x="184" y="186" width="92" height="20"/>
+    <text class="lab" x="188" y="200">HTTP request</text>
+
+    <path class="arr" d="M316 280 L380 280 L380 114 L440 114" marker-end="url(#a2)"/>
+    <rect class="lbg" x="352" y="186" width="56" height="20"/>
+    <text class="lab" x="380" y="200" text-anchor="middle">encrypted</text>
+
+    <path class="arr" d="M584 164 L584 228" marker-end="url(#a2)"/>
+    <rect class="lbg" x="592" y="186" width="44" height="20"/>
+    <text class="lab" x="596" y="200">reads</text>
+  </svg>
+  </div>
+  <p class="why"><b>Engineering choice:</b> our app talks to the viewer over HTTP instead of opening the database itself. The viewer already knows how to rebuild a run from those files, so we don't copy that code. And it works from the Mac through the same tunnel you already use. (Decision record 0001.)</p>
+  <ul class="points">
+    <li>If the tunnel is closed, our app can't see any runs. That's why <code>/health</code> reports "degraded" and tells you to run <code>dash</code>.</li>
+  </ul>
+</section>
+
+<!-- LEVEL 3 -->
+<section id="components">
+  <div class="lvl"><span class="n">Level 3</span><h2>Components</h2></div>
+  <p class="q">What are the parts inside our app?</p>
+  <p>Zoom into just the Investigation API. Each box is one part with one job. The top row is the skeleton we built. The bottom row is the rest of the 7-piece plan.</p>
+  <div class="diagram">
+  <svg viewBox="0 0 760 400" role="img" aria-label="Component diagram: inside the Investigation API, the web server routes call the OpenClaw adapter, which reads settings and calls the trace viewer. Planned parts: agent loop, LLM client, tools, report, investigator trace.">
+    <defs>
+      <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="a3l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah-l" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+    <rect class="bnd" x="8" y="14" width="744" height="372" rx="14"/>
+    <text class="bnd-t" x="26" y="40">INVESTIGATION API  ·  app/</text>
+
+    <rect class="built" x="30" y="62" width="200" height="112" rx="10"/>
+    <text class="t" x="130" y="94" text-anchor="middle">Web server</text>
+    <text class="m" x="130" y="114" text-anchor="middle">app/main.py</text>
+    <text class="s" x="130" y="136" text-anchor="middle">/health</text>
+    <text class="s" x="130" y="154" text-anchor="middle">/runs/{run_id}</text>
+
+    <rect class="built" x="290" y="62" width="220" height="112" rx="10"/>
+    <text class="t" x="400" y="94" text-anchor="middle">OpenClaw adapter</text>
+    <text class="m" x="400" y="114" text-anchor="middle">app/adapters/openclaw.py</text>
+    <text class="s" x="400" y="136" text-anchor="middle">the only part that</text>
+    <text class="s" x="400" y="154" text-anchor="middle">knows about OpenClaw</text>
+
+    <rect class="built" x="570" y="62" width="160" height="112" rx="10"/>
+    <text class="t" x="650" y="94" text-anchor="middle">Settings</text>
+    <text class="m" x="650" y="114" text-anchor="middle">app/config.py</text>
+    <text class="s" x="650" y="136" text-anchor="middle">viewer address</text>
+    <text class="s" x="650" y="154" text-anchor="middle">5-second timeout</text>
+
+    <path class="arr" d="M230 118 L286 118" marker-end="url(#a3)"/>
+    <text class="lab" x="258" y="108" text-anchor="middle">asks</text>
+    <path class="arr" d="M510 118 L566 118" marker-end="url(#a3)"/>
+    <text class="lab" x="538" y="108" text-anchor="middle">reads</text>
+
+    <path class="arr" d="M400 174 L400 214 L748 214" marker-end="url(#a3)"/>
+    <text class="lab" x="560" y="206" text-anchor="middle">to the trace viewer, through the tunnel</text>
+
+    <text class="bnd-t" x="30" y="252">PLANNED</text>
+    <rect class="later" x="30" y="266" width="128" height="92" rx="10"/>
+    <text class="later-t" x="94" y="300" text-anchor="middle">Agent loop</text>
+    <text class="s" x="94" y="320" text-anchor="middle">decides the</text>
+    <text class="s" x="94" y="337" text-anchor="middle">next step</text>
+
+    <rect class="later" x="174" y="266" width="128" height="92" rx="10"/>
+    <text class="later-t" x="238" y="300" text-anchor="middle">LLM client</text>
+    <text class="s" x="238" y="320" text-anchor="middle">talks to the</text>
+    <text class="s" x="238" y="337" text-anchor="middle">AI model</text>
+
+    <rect class="later" x="318" y="266" width="128" height="92" rx="10"/>
+    <text class="later-t" x="382" y="300" text-anchor="middle">Tools</text>
+    <text class="m" x="382" y="320" text-anchor="middle">get_run</text>
+    <text class="m" x="382" y="337" text-anchor="middle">get_event</text>
+
+    <rect class="later" x="462" y="266" width="128" height="92" rx="10"/>
+    <text class="later-t" x="526" y="300" text-anchor="middle">Report</text>
+    <text class="s" x="526" y="320" text-anchor="middle">verdict +</text>
+    <text class="s" x="526" y="337" text-anchor="middle">evidence</text>
+
+    <rect class="later" x="606" y="266" width="128" height="92" rx="10"/>
+    <text class="later-t" x="670" y="300" text-anchor="middle">Own trace</text>
+    <text class="s" x="670" y="320" text-anchor="middle">logs what the</text>
+    <text class="s" x="670" y="337" text-anchor="middle">investigator did</text>
+
+    <path class="arr-l" d="M340 266 L340 230 L360 230 L360 178" marker-end="url(#a3l)"/>
+  </svg>
+  </div>
+  <p class="why"><b>Engineering choice:</b> only the adapter knows where OpenClaw data lives. Everything else asks the adapter. If you later investigate a different agent system, you write a second adapter and nothing else changes.</p>
+  <ul class="points">
+    <li>The dashed arrow shows where the next phase plugs in: the tools will get their data from the same adapter.</li>
+  </ul>
+</section>
+
+<!-- LEVEL 4 -->
+<section id="code">
+  <div class="lvl"><span class="n">Level 4</span><h2>Code</h2></div>
+  <p class="q">Which functions run, in what order?</p>
+  <p>The closest zoom. The C4 model says this level is optional, since the code itself shows it. Here is the one request the skeleton handles, <code>GET /runs/{run_id}</code>, followed through the real functions, top to bottom.</p>
+  <div class="diagram">
+  <svg viewBox="0 0 760 380" role="img" aria-label="Sequence of function calls for GET /runs/{run_id}, from the caller through get_run and fetch_run to the trace viewer and back.">
+    <defs>
+      <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+    <line class="life" x1="70" y1="66" x2="70" y2="370"/>
+    <line class="life" x1="225" y1="66" x2="225" y2="370"/>
+    <line class="life" x1="390" y1="66" x2="390" y2="370"/>
+    <line class="life" x1="545" y1="66" x2="545" y2="370"/>
+    <line class="life" x1="690" y1="66" x2="690" y2="370"/>
+
+    <rect class="person" x="12" y="16" width="116" height="50" rx="25"/>
+    <text class="t" x="70" y="46" text-anchor="middle">You</text>
+
+    <rect class="built" x="150" y="16" width="150" height="50" rx="8"/>
+    <text class="lab-m" x="225" y="37" text-anchor="middle">main.py</text>
+    <text class="t" x="225" y="56" text-anchor="middle" style="font-size:14px">get_run()</text>
+
+    <rect class="built" x="310" y="16" width="160" height="50" rx="8"/>
+    <text class="lab-m" x="390" y="37" text-anchor="middle">openclaw.py</text>
+    <text class="t" x="390" y="56" text-anchor="middle" style="font-size:14px">fetch_run()</text>
+
+    <rect class="ext" x="480" y="16" width="130" height="50" rx="8"/>
+    <text class="lab-m" x="545" y="37" text-anchor="middle">httpx</text>
+    <text class="t" x="545" y="56" text-anchor="middle" style="font-size:14px">client.get()</text>
+
+    <rect class="ext" x="620" y="16" width="130" height="50" rx="8"/>
+    <text class="t" x="685" y="46" text-anchor="middle" style="font-size:14px">Trace viewer</text>
+
+    <path class="arr" d="M70 110 L221 110" marker-end="url(#a4)"/>
+    <text class="lab-m" x="146" y="102" text-anchor="middle">GET /runs/abc</text>
+
+    <path class="arr" d="M225 150 L386 150" marker-end="url(#a4)"/>
+    <text class="lab-m" x="307" y="142" text-anchor="middle">fetch_run(client, "abc")</text>
+
+    <path class="arr" d="M390 190 L541 190" marker-end="url(#a4)"/>
+    <text class="lab-m" x="466" y="182" text-anchor="middle">/api/run/abc</text>
+
+    <path class="arr" d="M545 230 L686 230" marker-end="url(#a4)"/>
+    <text class="lab" x="616" y="222" text-anchor="middle">via the tunnel</text>
+
+    <path class="ret" d="M690 270 L394 270" marker-end="url(#a4)"/>
+    <text class="lab" x="542" y="262" text-anchor="middle">200 + the run as JSON</text>
+
+    <path class="ret" d="M390 310 L229 310" marker-end="url(#a4)"/>
+    <text class="lab" x="307" y="302" text-anchor="middle">the run (a dict)</text>
+
+    <path class="ret" d="M225 350 L74 350" marker-end="url(#a4)"/>
+    <text class="lab" x="146" y="342" text-anchor="middle">200 + JSON</text>
+  </svg>
+  </div>
+  <p>That's the happy path. The adapter turns each way the viewer can answer into a clear result, and the web server turns that into an HTTP status:</p>
+  <div class="tbl">
+  <table>
+    <thead><tr><th>Viewer says</th><th>Adapter does</th><th>You get</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>200 + run</td><td>returns it unchanged</td><td class="c ok">200</td><td>Normal case.</td></tr>
+      <tr><td>404</td><td>raises <code>RunNotFound</code></td><td class="c">404</td><td>A wrong ID is a normal answer, not a crash.</td></tr>
+      <tr><td>500, or no answer</td><td>raises <code>ViewerUnavailable</code></td><td class="c">503</td><td>Our app is fine, but the thing behind it isn't. The message says "run <code>dash</code>".</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <ul class="points">
+    <li><code>/health</code> takes the same path with <code>viewer_status()</code>. It never raises an error. It always answers, and reports "ok" or "degraded".</li>
+    <li>In the tests, the httpx box is swapped for a fake viewer, so all 9 tests run without the server or the tunnel.</li>
+  </ul>
+</section>
+
+<footer>
+  <span>The C4 model was created by Simon Brown. "C4" stands for its four levels: Context, Containers, Components, Code.</span>
+  <span>Matches the code as of the skeleton (pieces 1 and 5 of 7). Source: run-investigation-agent/app and docs/decisions/0001.</span>
+</footer>
+</div>
