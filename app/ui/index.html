@@ -252,7 +252,7 @@ function renderInvestigation(res) {
   const ol = el("ol", "steps");
   for (const s of res.steps) {
     const what = s.tool ? s.tool + (Object.keys(s.input).length ? " " + JSON.stringify(s.input) : "")
-                        : "final answer";
+                        : "reply with no tool call";
     ol.append(el("li", s.ok ? null : "bad-step", what + (s.ok ? "" : " — " + show(s.note))));
   }
   how.append(ol);

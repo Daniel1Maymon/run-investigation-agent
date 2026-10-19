@@ -16,7 +16,8 @@ must stay read-only, and should not be tied to one model provider.
 1. **We write the loop ourselves** (`app/investigator.py`), and it is the
    **standard** loop: ask the model; if the reply has tool calls, run them and
    send the answers back; if it has none, the model is finished.
-2. **The final answer must be the report as JSON.** The loop validates it
+2. *(Replaced by 0009: the report is now handed in through a `submit_report`
+   tool.)* **The final answer must be the report as JSON.** The loop validates it
    (`Report` in `app/schema.py`: shape, and every cited event must exist). An
    invalid answer is sent back with what is wrong, and the model tries again.
 3. **Model-agnostic through an adapter.** The loop speaks only our own shapes

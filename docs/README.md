@@ -26,3 +26,6 @@
     terminal; content and thinking only at `LOG_LEVEL=DEBUG`
   - `0008-fetch-run-once.md` — one download of the run per investigation;
     the tools only cut down that copy
+  - `0009-submit-report-tool.md` — the model hands in its report through a
+    `submit_report` tool whose schema is generated from `Report`; an invalid
+    report comes back as a tool error

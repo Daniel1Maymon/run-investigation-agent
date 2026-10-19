@@ -115,8 +115,13 @@ def ask_many(*calls):
                                            for n, i in calls])
 
 def say(text, cut_off=False):
-    """A model reply with no tool calls: the model is finished (unless cut off)."""
+    """A model reply with no tool calls: plain text, which is not a report (decision 0009)."""
     return ModelReply(text=text, tool_calls=[], cut_off=cut_off)
+
+def submit(report, cut_off=False):
+    """A model reply handing in a report through submit_report: how the model finishes."""
+    return ModelReply(text="", tool_calls=[ToolCall(id=f"call_{next(_ids)}", name="submit_report",
+                                                    input=report)], cut_off=cut_off)
 
 REPORT = {"outcome": "success", "summary": "The search returned results and the reply answered.",
           "findings": [{"what": "family_search returned results", "evidence": [3], "kind": "fact"},

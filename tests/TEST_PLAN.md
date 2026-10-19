@@ -619,3 +619,86 @@ docs/decisions/0008.
 - **Verified live:** 2026-10-19, run `800dfeb3`, `deepseek/deepseek-v4.1-flash`:
   9 tool calls, **1** request to the viewer, status `done`. Each tool line in
   the log went from ~0.2 s to 0.0 s.
+
+## The report is handed in through a `submit_report` tool
+
+The model used to finish by writing the report as JSON text, and the shape of
+that JSON was typed by hand into the instructions, a second copy of `Report`.
+Now the model gets a third tool, `submit_report`, whose input *is* the report.
+Its schema is generated from `Report`, so there is one copy. Calling it is how
+the model finishes. The loop still checks the report (shape, and real event
+IDs); an invalid one is answered as a tool error. See docs/decisions/0009.
+
+### Case 52 — the tool's schema comes from `Report`
+- **Input:** the `submit_report` tool spec the model is given.
+- **Expected:**
+  - Its parameters are `Report`'s JSON schema: the same fields, with the same
+    required ones (`outcome`, `summary`, `findings`, `next_step`) and the same
+    allowed values for `outcome` and `kind`.
+  - `Finding` is written inline: no `$ref` or `$defs` anywhere (not every
+    provider follows them).
+  - The hints are in the field descriptions (e.g. `kind` explains fact vs
+    suspicion).
+  - The instructions no longer hold a JSON block, and they name `submit_report`.
+- **Failure modes:** a field added to `Report` that the model is never told about.
+- **Verified:** automated (`test_investigator.py`).
+
+### Case 53 — a valid `submit_report` finishes the investigation
+- **Input:** fake model: `get_run`, then `submit_report` with a valid report
+  citing events 3 and 5; also a reply asking for `get_event` **and**
+  `submit_report` together.
+- **Expected:** `status "done"`, the report returned as sent, 2 model calls,
+  steps `get_run` then `submit_report` (ok, "final report"). The report is not
+  copied into the step's input (the page would print it twice). When
+  `submit_report` comes with another tool in one reply, the other tool runs
+  first and the investigation still ends `done` on that reply.
+- **Verified:** automated.
+
+### Case 54 — an invalid report is answered as a tool error
+- **Input:** `submit_report` calls, in turn: missing `next_step`; citing event
+  42 (the run has 6); an empty input `{}` (what the OpenRouter adapter makes
+  of broken JSON, case 46); then a valid report.
+- **Expected:** each invalid one gets a tool result with `is_error`, the same
+  call id, and exactly what is wrong (the missing field; "events [42] that do
+  not exist"; "empty report"). The step shows `ok: false` with that reason.
+  `done` after 4 model calls.
+- **Failure modes:** the loop crashes on `{}`; an invalid report is accepted;
+  the reason is not sent back.
+- **Verified:** automated.
+
+### Case 55 — a reply with no tool call is not a report
+- **Input:** fake model: a text reply holding a valid report as JSON (the old
+  way), then `submit_report` with the same report.
+- **Expected:** the text is **not** accepted. The model is told to hand the
+  report in through `submit_report`; the step shows `ok: false`. `done` after
+  2 model calls, on the `submit_report`.
+- **Failure modes:** two ways to finish (text accepted too).
+- **Verified:** automated.
+
+### Case 56 — the report's content stays out of the INFO log
+- **Input:** case 53's happy path, the log at INFO, with a report whose
+  summary holds a marker string.
+- **Expected:** the call line says `→ submit_report`, with no report content;
+  the marker is not in any INFO line. A rejected one logs
+  `report rejected: <why>`.
+- **Verified:** automated (`test_logs.py`).
+
+### Changed cases
+- **Case 26, 28, 37, 40–45, 48, 50, 51:** the fake model now finishes with
+  `submit_report` instead of a JSON text reply. What they test is unchanged.
+- **Case 28** (an invalid final answer is sent back) is replaced by case 54.
+- **Case 37** (cut off): unchanged in behaviour. A cut-off `submit_report` is
+  not run (half its input may be missing); the model is asked for a shorter
+  report.
+- **Case 38** (finding the first JSON object in the text) is retired: there is
+  no free-text report to search any more.
+
+### Live check
+- One real investigation of run `800dfeb3` with `deepseek/deepseek-v4.1-flash`
+  through the tunnel: it finishes with `submit_report`, status `done`, valid
+  report.
+- **Verified live:** 2026-10-19, run `800dfeb3`, `deepseek/deepseek-v4.1-flash`,
+  real viewer through the tunnel: 8 model calls (1 `get_run`, 12 `get_event`,
+  then `submit_report` accepted on the first try: no rejected report),
+  status `done`, outcome `success`, 8 findings, 56.5 s, $0.0077. The log line
+  read `→ submit_report` with no report content.

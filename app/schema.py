@@ -3,7 +3,7 @@ harness the run came from. Only adapters know a harness's own format.
 See docs/decisions/0004."""
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 EventKind = Literal["user", "thinking", "tool_call", "tool_result", "reply"]
 
@@ -52,22 +52,30 @@ class EventDetail(BaseModel):
 
 # ---- The investigator's output (docs/decisions/0005) ----
 
+# Finding and Report are also the input schema of the submit_report tool
+# (docs/decisions/0009): their docstrings and field descriptions are what the
+# model is told, so they are written to the model.
+
 class Finding(BaseModel):
-    what: str                                  # one sentence
-    evidence: list[int]                        # event ids that show it
-    kind: Literal["fact", "suspicion"]         # recorded in the run, or the model's guess
+    """One thing you found in the run."""
+    what: str = Field(description="One sentence.")
+    evidence: list[int] = Field(description="The ids of the events that show it.")
+    kind: Literal["fact", "suspicion"] = Field(
+        description='"fact" = recorded in the run; "suspicion" = your inference.')
 
 class Report(BaseModel):
-    """The investigator's final answer, sent as JSON and checked by the loop."""
-    outcome: Literal["success", "failure", "insufficient_evidence"]
-    summary: str
+    """Your report on the run. Checked by the loop: an invalid one comes back as an error."""
+    outcome: Literal["success", "failure", "insufficient_evidence"] = Field(
+        description="Was the run's task completed?")
+    summary: str = Field(description="1-3 sentences.")
     findings: list[Finding]
-    suspected_cause: str | None = None
-    next_step: str
+    suspected_cause: str | None = Field(
+        default=None, description="The likely cause of the problem, or null if none.")
+    next_step: str = Field(description="What a developer should check or do next.")
 
 class Step(BaseModel):
     """One thing the investigator did, so the page can show how it got there."""
-    tool: str | None                           # None = a final answer (report)
+    tool: str | None                           # None = a reply with no tool call (cut off, or text)
     input: dict = {}
     ok: bool = True                            # False = error / rejected report
     result_chars: int = 0
