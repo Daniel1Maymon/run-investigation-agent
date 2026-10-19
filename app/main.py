@@ -30,48 +30,48 @@ def model_client() -> Model:
 
 # One place that turns the adapter's errors into HTTP answers,
 # instead of the same try/except in every endpoint.
-@app.exception_handler(openclaw.RunNotFound)
-@app.exception_handler(openclaw.EventNotFound)
+@app.exception_handler(exc_class_or_status_code=openclaw.RunNotFound)
+@app.exception_handler(exc_class_or_status_code=openclaw.EventNotFound)
 def _not_found(request: Request, ex: Exception) -> JSONResponse:
-    return JSONResponse({"detail": str(ex)}, status_code=404)
+    return JSONResponse(content={"detail": str(ex)}, status_code=404)
 
 
-@app.exception_handler(openclaw.ViewerUnavailable)
-@app.exception_handler(ModelNotConfigured)
+@app.exception_handler(exc_class_or_status_code=openclaw.ViewerUnavailable)
+@app.exception_handler(exc_class_or_status_code=ModelNotConfigured)
 def _unavailable(request: Request, ex: Exception) -> JSONResponse:
-    return JSONResponse({"detail": str(ex)}, status_code=503)
+    return JSONResponse(content={"detail": str(ex)}, status_code=503)
 
 
 # A failed model call is not an HTTP error: the investigator returns it as
 # status "error" with the steps done so far (TEST_PLAN case 39).
 
 
-@app.get("/", include_in_schema=False)
+@app.get(path="/", include_in_schema=False)
 def ui() -> FileResponse:
     # The whole UI is one page; it calls /runs/{run_id} itself. See docs/decisions/0002.
-    return FileResponse(UI_PAGE, media_type="text/html")
+    return FileResponse(path=UI_PAGE, media_type="text/html")
 
 
-@app.get("/health")
-def health(client: httpx.Client = Depends(viewer_client)) -> dict:
-    viewer = openclaw.viewer_status(client)
+@app.get(path="/health")
+def health(client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
+    viewer = openclaw.viewer_status(client=client)
     return {"status": "ok" if viewer["reachable"] else "degraded", "viewer": viewer}
 
 
-@app.get("/runs/{run_id}")
-def get_run(run_id: str, client: httpx.Client = Depends(viewer_client)) -> dict:
-    return openclaw.fetch_run(client, run_id)
+@app.get(path="/runs/{run_id}")
+def get_run(run_id: str, client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
+    return openclaw.fetch_run(client=client, run_id=run_id)
 
 
-@app.get("/runs/{run_id}/overview")
-def run_overview(run_id: str, client: httpx.Client = Depends(viewer_client)) -> dict:
+@app.get(path="/runs/{run_id}/overview")
+def run_overview(run_id: str, client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
     # Exactly what the investigator's get_run tool returns.
     return tools.get_run(raw=openclaw.fetch_run(client=client, run_id=run_id))
 
 
-@app.get("/runs/{run_id}/events/{event_id}")
+@app.get(path="/runs/{run_id}/events/{event_id}")
 def run_event(run_id: str, event_id: int, start: int = 0,
-              client: httpx.Client = Depends(viewer_client)) -> dict:
+              client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
     # Exactly what the investigator's get_event tool returns.
     return tools.get_event(raw=openclaw.fetch_run(client=client, run_id=run_id),
                            event_id=event_id, start=start)

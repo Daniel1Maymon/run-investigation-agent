@@ -20,23 +20,23 @@ TEXT_FIELDS = {"user_text", "reply_text", "session_key", "workspace_dir", "file_
 
 def redact(v, key=None):
     if isinstance(v, dict):
-        return {k: redact(x, k) for k, x in v.items() if k != "raw"}  # raw duplicates blocks
+        return {k: redact(v=x, key=k) for k, x in v.items() if k != "raw"}  # raw duplicates blocks
     if isinstance(v, list):
-        return [redact(x, key) for x in v]
+        return [redact(v=x, key=key) for x in v]
     if isinstance(v, str) and key in TEXT_FIELDS and not v.startswith("[not recorded:"):
         return "·" * len(v)
     return v
 
 def main(run_id: str, redacted: bool) -> None:
     with openclaw.make_client() as client:
-        run = openclaw.fetch_run(client, run_id)
+        run = openclaw.fetch_run(client=client, run_id=run_id)
     if redacted:
-        run, out = redact(run), ROOT / "tests" / "fixtures" / f"run_{run_id[:8]}.json"
+        run, out = redact(v=run), ROOT / "tests" / "fixtures" / f"run_{run_id[:8]}.json"
     else:
         out = ROOT / "data" / "runs" / f"{run_id}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(run, ensure_ascii=False, indent=1))
+    out.write_text(data=json.dumps(obj=run, ensure_ascii=False, indent=1))
     print(f"saved {out.relative_to(ROOT)}")
 
 if __name__ == "__main__":
-    main(sys.argv[1], "--redact" in sys.argv[2:])
+    main(run_id=sys.argv[1], redacted="--redact" in sys.argv[2:])

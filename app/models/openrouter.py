@@ -10,7 +10,7 @@ import httpx
 from app.models.base import (Message, ModelError, ModelNotConfigured, ModelReply,
                              ToolCall, ToolSpec)
 
-log = logging.getLogger(__name__)
+log = logging.getLogger(name=__name__)
 
 URL = "https://openrouter.ai/api/v1/chat/completions"
 RETRIES = 2
@@ -22,7 +22,7 @@ class OpenRouterModel:
     def __init__(self, name: str, client: httpx.Client | None = None,
                  max_tokens: int = 4096, sleep=time.sleep):
         # `client` and `sleep` let tests pass a fake transport and skip the waits.
-        key = os.environ.get("OPENROUTER_API_KEY")
+        key = os.environ.get(key="OPENROUTER_API_KEY")
         if not key:
             raise ModelNotConfigured(
                 "no OPENROUTER_API_KEY: put it in .env and start the server with "
@@ -35,15 +35,15 @@ class OpenRouterModel:
              history: list[Message], *, timeout: float) -> ModelReply:
         body = {"model": self.name, "max_tokens": self.max_tokens,
                 "usage": {"include": True},                 # tokens and cost (case 49)
-                "tools": [to_openrouter_tool(t) for t in tools],
+                "tools": [to_openrouter_tool(tool=t) for t in tools],
                 "messages": [{"role": "system", "content": instructions}]
-                            + [m for h in history for m in to_openrouter_messages(h)]}
+                            + [m for h in history for m in to_openrouter_messages(m=h)]}
         # Each try gets a third of the budget, so all tries fit in it (case 36).
         per_try = timeout / (RETRIES + 1)
         for attempt in range(RETRIES + 1):
             last = attempt == RETRIES
             try:
-                response = self.client.post(URL, json=body, headers=self.headers,
+                response = self.client.post(url=URL, json=body, headers=self.headers,
                                             timeout=per_try)
             except httpx.TransportError as ex:          # timeouts included
                 if last:
@@ -51,7 +51,7 @@ class OpenRouterModel:
                 why = type(ex).__name__
             else:
                 if response.status_code not in RETRY_STATUS or last:
-                    return from_openrouter(_ok_json(response))
+                    return from_openrouter(data=_ok_json(response=response))
                 why = f"HTTP {response.status_code}"
             log.info("retry %d after %s", attempt + 1, why)
             self.sleep(attempt + 1)
@@ -84,7 +84,7 @@ def to_openrouter_messages(m: Message) -> list[dict]:
         msg = {"role": "assistant", "content": m.text or None}
         if m.tool_calls:
             msg["tool_calls"] = [{"id": c.id, "type": "function", "function": {
-                "name": c.name, "arguments": json.dumps(c.input)}} for c in m.tool_calls]
+                "name": c.name, "arguments": json.dumps(obj=c.input)}} for c in m.tool_calls]
         elif not m.text:
             msg["content"] = "(empty)"      # some providers reject an empty message
         out.append(msg)
@@ -100,7 +100,7 @@ def from_openrouter(data: dict) -> ModelReply:
     return ModelReply(
         text=msg.get("content") or "",
         tool_calls=[ToolCall(id=c["id"], name=c["function"]["name"],
-                             input=_arguments(c["function"].get("arguments")))
+                             input=_arguments(raw=c["function"].get("arguments")))
                     for c in msg.get("tool_calls") or []],
         cut_off=choice.get("finish_reason") == "length",
         in_tokens=usage.get("prompt_tokens"), out_tokens=usage.get("completion_tokens"),
@@ -111,7 +111,7 @@ def _arguments(raw: str | None) -> dict:
     # Arguments arrive as a JSON string. Broken ones become {}: the loop then tells
     # the model what input is missing, instead of crashing (case 46).
     try:
-        parsed = json.loads(raw or "{}")
+        parsed = json.loads(s=raw or "{}")
     except json.JSONDecodeError:
         return {}
     return parsed if isinstance(parsed, dict) else {}

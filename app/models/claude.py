@@ -14,7 +14,7 @@ class ClaudeModel:
                  max_tokens: int = 4096):
         # `client` lets tests pass a fake instead of the real API.
         if client is None:
-            if not os.environ.get("ANTHROPIC_API_KEY"):
+            if not os.environ.get(key="ANTHROPIC_API_KEY"):
                 raise ModelNotConfigured(
                     "no ANTHROPIC_API_KEY: put it in .env and start the server with "
                     "`uv run --env-file .env uvicorn app.main:app --reload`")
@@ -26,13 +26,13 @@ class ClaudeModel:
         try:
             response = self.client.messages.create(
                 model=self.name, max_tokens=self.max_tokens, system=instructions,
-                tools=[to_claude_tool(t) for t in tools],
-                messages=[to_claude_message(m) for m in history],
+                tools=[to_claude_tool(tool=t) for t in tools],
+                messages=[to_claude_message(m=m) for m in history],
                 # The SDK's timeout is per try: split the budget so all tries fit in it.
                 timeout=timeout / (RETRIES + 1))
         except anthropic.APIError as ex:          # a timeout is an APIError too
             raise ModelError(f"model call failed: {ex}") from ex
-        return from_claude(response)
+        return from_claude(response=response)
 
 
 def to_claude_tool(tool: ToolSpec) -> dict:

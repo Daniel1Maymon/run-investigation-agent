@@ -63,5 +63,4 @@ class Model(Protocol):
     take, retries included."""
     name: str
 
-    def next(self, instructions: str, tools: list[ToolSpec],
-             history: list[Message], *, timeout: float) -> ModelReply: ...
+    def next(self, instructions: str, tools: list[ToolSpec], history: list[Message], *, timeout: float) -> ModelReply: ...
