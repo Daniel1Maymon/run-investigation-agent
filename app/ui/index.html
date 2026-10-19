@@ -63,6 +63,7 @@
   .row-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
   .row-prompt { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .muted { color: var(--muted); }
+  .newer { text-align: center; padding: 6px; border: 1px dashed var(--accent); border-radius: 8px; color: var(--accent); cursor: pointer; font-size: 13px; }
   .runs { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
   .runs li { padding: 4px 8px; border-radius: 6px; background: var(--bg); font-size: 13px; }
   .runs li:hover { outline: 1px solid var(--accent); }
@@ -102,7 +103,7 @@
 <script>
 // Thin by design: it only displays what GET /sessions, GET /runs/{id} and
 // POST /runs/{id}/investigate return.
-// See docs/decisions/0002 and 0003.
+// See docs/decisions/0002, 0003 and 0010.
 // Run content is evidence, never markup: everything is written with textContent.
 const $ = (id) => document.getElementById(id);
 const out = $("out");
@@ -263,6 +264,7 @@ function renderInvestigation(res) {
 // ---- Session list (TEST_PLAN cases 15–16) ----
 let sessions = null;  // loaded the first time the menu opens; null = not loaded (keep the error shown)
 let loading = false;
+let dataVersion = null;  // the viewer's data version when the list was last loaded; null = unknown
 
 function setMenu(open) {
   $("sessions").hidden = !open;
@@ -270,22 +272,30 @@ function setMenu(open) {
   if (open && sessions === null && !loading) loadSessions();
 }
 
-async function loadSessions() {
+// quiet: a background reload (case 60) — no "Loading…", keep the scroll, and
+// on failure keep the list already shown.
+async function loadSessions(quiet = false) {
   loading = true;
   const list = $("sessions");
-  list.replaceChildren(el("li", "msg hint", "Loading sessions…"));
+  const top = list.scrollTop;
+  if (!quiet) list.replaceChildren(el("li", "msg hint", "Loading sessions…"));
+  // Asked before the list, so a change during the fetch only causes one extra reload.
+  const version = fetchVersion();
   try {
     const r = await fetch("/sessions");
     const body = await r.json().catch(() => ({}));
     if (!r.ok) {
+      if (quiet) return;
       const why = "Can't load the session list" + (r.status === 503 ? ". " : " (HTTP " + r.status + "). ");
       list.replaceChildren(el("li", "msg error", why + show(body.detail)));
       return;
     }
     sessions = body;
+    dataVersion = await version;
     renderList($("run-id").value);
+    list.scrollTop = top;
   } catch (e) {
-    list.replaceChildren(el("li", "msg error", "Can't reach this app's server. Is it still running?"));
+    if (!quiet) list.replaceChildren(el("li", "msg error", "Can't reach this app's server. Is it still running?"));
   } finally {
     loading = false;
   }
@@ -346,6 +356,34 @@ function openRun(id) {
   history.replaceState(null, "", "?run=" + encodeURIComponent(id));
   check(id);
 }
+
+// ---- Keeping the list fresh (TEST_PLAN case 60, docs/decisions/0010) ----
+// The viewer raises its data version when its sweep finds new runs. We ask for
+// it every 10 s and re-fetch the list only when it changed.
+async function fetchVersion() {
+  try {
+    const r = await fetch("/sessions/version");
+    return r.ok ? (await r.json()).v : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function checkForNewSessions() {
+  // Not loaded yet: the first open fetches a fresh list anyway.
+  if (document.hidden || sessions === null || loading) return;
+  const v = await fetchVersion();
+  if (v === null || v === dataVersion) return;  // viewer down, or nothing new
+  const list = $("sessions");
+  if (!list.querySelector(".runs")) { loadSessions(true); return; }
+  // A session's runs are expanded: someone is picking. Offer the update, don't redraw under them.
+  if (list.querySelector(".newer")) return;
+  const note = el("li", "newer", "New sessions — click to show");
+  note.addEventListener("click", () => loadSessions(true));
+  list.prepend(note);
+}
+
+setInterval(checkForNewSessions, 10000);
 
 // Typing searches the sessions, so it opens the menu; Esc, a click outside, or Check close it.
 $("sessions-toggle").addEventListener("click", () => setMenu($("sessions").hidden));

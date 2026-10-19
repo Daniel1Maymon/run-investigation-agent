@@ -1,7 +1,8 @@
-"""TEST_PLAN.md cases 3–5, 12 and 14."""
+"""TEST_PLAN.md cases 3–5, 12, 14 and 57."""
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 
 from app.adapters import openclaw
@@ -43,11 +44,26 @@ def test_case12_one_failed_run_fails_the_session(viewer):
     assert s["first_prompt"] == ""
 
 def test_case12_unreachable_viewer_points_at_the_tunnel(dead_viewer):
-    with pytest.raises(openclaw.ViewerUnavailable, match="dash"):
-        openclaw.list_sessions(dead_viewer)
+    with pytest.raises(expected_exception=openclaw.ViewerUnavailable, match="dash"):
+        openclaw.list_sessions(client=dead_viewer)
 
 def test_case14_real_viewer_answer_slims_without_errors():
-    rows = json.loads((FIXTURES / "api_runs_sample.json").read_text())["rows"]
-    slim = [openclaw._slim_session(r) for r in rows]
+    rows = json.loads(s=(FIXTURES / "api_runs_sample.json").read_text())["rows"]
+    slim = [openclaw._slim_session(row=r) for r in rows]
     assert slim
     assert all(s["status"] in ("ok", "failed") and s["runs"] for s in slim)
+
+# Case 57 — the viewer's data version.
+
+def test_case57_data_version_is_returned(viewer):
+    assert openclaw.data_version(client=viewer) == 0
+
+def test_case57_unreachable_viewer_points_at_the_tunnel(dead_viewer):
+    with pytest.raises(expected_exception=openclaw.ViewerUnavailable, match="dash"):
+        openclaw.data_version(client=dead_viewer)
+
+def test_case57_viewer_error_is_unavailable():
+    erroring = httpx.MockTransport(handler=lambda request: httpx.Response(status_code=500))
+    with openclaw.make_client(transport=erroring) as client:
+        with pytest.raises(expected_exception=openclaw.ViewerUnavailable, match="500"):
+            openclaw.data_version(client=client)

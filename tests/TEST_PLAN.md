@@ -702,3 +702,50 @@ IDs); an invalid one is answered as a tool error. See docs/decisions/0009.
   then `submit_report` accepted on the first try: no rejected report),
   status `done`, outcome `success`, 8 findings, 56.5 s, $0.0077. The log line
   read `→ submit_report` with no report content.
+
+## The session list updates itself
+
+The page used to load the session list once, the first time the menu opened,
+and never again: a session that started later only showed up after a page
+reload. Now the page asks a tiny question every 10 seconds: "has the viewer's
+data changed?" The viewer already answers it: `/api/version` returns `v`, a
+number it raises whenever its 30-second sweep finds new runs. When `v` differs
+from the last answer, the page fetches `/sessions` again. New server pieces:
+`openclaw.data_version` and `GET /sessions/version`. See docs/decisions/0010.
+
+### Case 57 — adapter: the viewer's data version
+- **Input:** the viewer's `/api/version` answers `{"v": 0, ...}`.
+- **Expected:** `openclaw.data_version` returns `0`.
+- **Failure modes:** viewer unreachable → `ViewerUnavailable` pointing at
+  `dash`; viewer answers an error (HTTP 500) → `ViewerUnavailable` naming the
+  status.
+- **Verified:** mocked (`test_openclaw_adapter.py`).
+
+### Case 58 — `GET /sessions/version`
+- **Input:** `GET /sessions/version`.
+- **Expected:** 200 with `{"v": 0}`; 503 with the `dash` hint when the viewer
+  is unreachable.
+- **Verified:** mocked (`test_sessions.py`).
+
+### Case 59 — the page checks for changes
+- **Input:** `GET /`.
+- **Expected:** the page calls `/sessions/version` on a timer.
+- **Why it's thin:** the timer's behaviour runs in the browser; case 60 checks
+  it live. This only catches the check being deleted.
+- **Verified:** automated (`test_ui.py`).
+
+### Case 60 — live: a new session appears without a reload
+- **Input:** tunnel open, page open, Sessions menu loaded once. Then a new
+  OpenClaw run happens (a real one; we don't trigger the viewer's sweep, 0010).
+- **Expected:**
+  - Within ~40 s (viewer sweep ≤30 s + page check ≤10 s) the new session is at
+    the top of the list, with no page reload.
+  - Whatever is typed in the search box still filters the new list.
+  - The list's scroll position is kept.
+  - If a session's run list is expanded, the list is **not** redrawn under
+    the reader; a "New sessions — click to show" line appears at the top
+    instead, and clicking it redraws.
+  - While the tab is hidden, no version checks are sent.
+  - Viewer down during a check: nothing changes on screen, checks keep going,
+    and the list updates once the viewer is back.
+- **Verified live:** not yet.

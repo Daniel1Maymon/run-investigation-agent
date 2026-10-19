@@ -29,3 +29,6 @@
   - `0009-submit-report-tool.md` — the model hands in its report through a
     `submit_report` tool whose schema is generated from `Report`; an invalid
     report comes back as a tool error
+  - `0010-session-list-polls-viewer-version.md` — the session list updates
+    itself: the page checks the viewer's data version every 10 s and
+    re-fetches the list only when it changed

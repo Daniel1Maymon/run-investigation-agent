@@ -77,14 +77,19 @@ def run_event(run_id: str, event_id: int, start: int = 0,
                            event_id=event_id, start=start)
 
 
-@app.post("/runs/{run_id}/investigate")
-def investigate_run(run_id: str, client: httpx.Client = Depends(viewer_client),
-                    model: Model = Depends(model_client)) -> dict:
+@app.post(path="/runs/{run_id}/investigate")
+def investigate_run(run_id: str, client: httpx.Client = Depends(dependency=viewer_client), model: Model = Depends(dependency=model_client)) -> dict:
     # POST, not GET: it does work (model calls cost money and take time).
-    return investigator.investigate(client, model, run_id).model_dump()
+    return investigator.investigate(client=client, model=model, run_id=run_id).model_dump()
 
 
-@app.get("/sessions")
-def list_sessions(client: httpx.Client = Depends(viewer_client)) -> list[dict]:
+@app.get(path="/sessions")
+def list_sessions(client: httpx.Client = Depends(dependency=viewer_client)) -> list[dict]:
     # An empty list is a valid answer, so there is no 404 here.
-    return openclaw.list_sessions(client)
+    return openclaw.list_sessions(client=client)
+
+
+@app.get(path="/sessions/version")
+def sessions_version(client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
+    # The page asks this every few seconds and re-fetches /sessions only when it changes.
+    return {"v": openclaw.data_version(client=client)}

@@ -62,6 +62,16 @@ def viewer_status(client: httpx.Client) -> dict:
     status["reachable"] = True
     return status
 
+def data_version(client: httpx.Client) -> int:
+    """The viewer's data version: it changes when the viewer indexes new runs. See docs/decisions/0010."""
+    try:
+        r = client.get(url="/api/version")
+    except httpx.HTTPError as ex:
+        raise _unavailable(detail=f"could not be reached ({type(ex).__name__})") from ex
+    if r.status_code != 200:
+        raise _unavailable(detail=f"answered HTTP {r.status_code}")
+    return r.json()["v"]
+
 def list_sessions(client: httpx.Client, limit: int = 200) -> list[dict]:
     """The newest sessions, slimmed to what the session list shows. See docs/decisions/0003."""
     try:
