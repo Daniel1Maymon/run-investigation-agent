@@ -6,7 +6,7 @@ import json
 import httpx
 import pytest
 
-from app import config, investigator
+from app import config, investigator, tools
 from app.adapters import openclaw
 from app.models.base import ModelError
 from tests.conftest import REPORT, FakeModel, OK_RUN, ask, ask_many, fake_viewer, say
@@ -77,20 +77,51 @@ def test_case31_unknown_run_costs_nothing(viewer):
         investigator.investigate(viewer, model, "nope")
     assert model.histories == []
 
-# Case 32
+# Case 32 (changed by case 51)
 
-def test_case32_viewer_down_mid_run_stops_everything():
+def test_case32_viewer_down_at_the_start_stops_before_the_model(dead_viewer):
+    model = FakeModel(ask("get_run"))
+    with pytest.raises(openclaw.ViewerUnavailable, match="dash"):
+        investigator.investigate(dead_viewer, model, "ok")
+    assert model.histories == []            # no model call, no money spent
+
+
+def test_case32_viewer_down_mid_run_no_longer_matters():
     answered = []
     def first_then_refuse(request):
         if answered:
             raise httpx.ConnectError("connection refused", request=request)
         answered.append(1)
         return fake_viewer(request)
-    model = FakeModel(ask("get_run"))
+    model = FakeModel(ask("get_run"), ask("get_event", event_id=3), say(json.dumps(REPORT)))
     with openclaw.make_client(httpx.MockTransport(first_then_refuse)) as client:
-        with pytest.raises(openclaw.ViewerUnavailable, match="dash"):
-            investigator.investigate(client, model, "ok")
-    assert len(model.histories) == 1        # it never got a second turn
+        inv = investigator.investigate(client, model, "ok")
+    assert inv.status == "done"
+
+# Case 51
+
+def test_case51_one_investigation_fetches_the_run_once():
+    requests = []
+    def counting(request):
+        requests.append(request.url.path)
+        return fake_viewer(request)
+    model = FakeModel(ask("get_run"), ask("get_event", event_id=1),
+                      ask("get_event", event_id=3), ask("get_event", event_id=3, start=10),
+                      say(json.dumps(REPORT)))
+    with openclaw.make_client(httpx.MockTransport(counting)) as client:
+        inv = investigator.investigate(client, model, "ok")
+    assert inv.status == "done" and len(inv.steps) == 5
+    assert requests == ["/api/run/ok"]
+
+
+def test_case51_tool_answers_are_unchanged(viewer):
+    # The same text the model got before: the cutting didn't change, only where the run comes from.
+    model = FakeModel(ask("get_run"), ask("get_event", event_id=3), say(json.dumps(REPORT)))
+    investigator.investigate(viewer, model, "ok")
+    answers = [r.content for m in model.histories[-1] for r in m.tool_results]
+    raw = openclaw.fetch_run(client=viewer, run_id="ok")
+    assert answers == [json.dumps(tools.get_run(raw=raw), ensure_ascii=False),
+                       json.dumps(tools.get_event(raw=raw, event_id=3), ensure_ascii=False)]
 
 # ---- Review fixes: cases 36–39 ----
 

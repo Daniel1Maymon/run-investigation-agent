@@ -565,12 +565,14 @@ turned off, so it doesn't double the noise. See docs/decisions/0007.
 
 ### Case 50 — things going wrong are in the log
 - **Input:** case 28 (rejected reports), case 37 (cut off), case 27 (tool
-  error), case 29 (step limit), case 39 (model error), case 32 (viewer down),
-  case 47 (a 429 retried).
+  error), case 29 (step limit), case 39 (model error), case 47 (a 429 retried).
 - **Expected:** a line for each, in plain words: `report rejected: <why>`,
   `→ cut off`, `tool get_event(event_id=99)  error: … no event 99`, `stopped: step limit
-  (12 model calls)`, `error: model call failed: …`, `viewer down`, `retry 1
+  (12 model calls)`, `error: model call failed: …`, `retry 1
   after HTTP 429`. The `httpx` logger is at WARNING.
+- **Changed by case 51:** the `viewer down during tool` line is gone. No tool
+  call reaches the viewer any more, so it can't go down during one; viewer
+  down at the start is a 503 before the log's `start` line (case 32).
 - **Verified:** automated.
 
 ### Live check
@@ -580,3 +582,40 @@ turned off, so it doesn't double the noise. See docs/decisions/0007.
   `deepseek/deepseek-v4.1-flash`: 17 lines in all (4 calls, 6 tools, start, done),
   thinking and the report text shown at DEBUG only. Totals: 9.2 s, in 10,357 /
   out 1,081 tokens, $0.0015.
+
+## Fetch the run once per investigation
+
+Both tools used to download the whole run from `/api/run/<id>` on every call,
+then cut it down: 11 downloads of the same ~117 KB for run 800dfeb3 (1 at the
+start + 1 `get_run` + 9 `get_event`). Now the loop downloads it once when the
+investigation starts and keeps it in a local variable; the tools only cut down
+the copy they are given. What the model sees doesn't change. See
+docs/decisions/0008.
+
+### Case 51 — one investigation, one call to the viewer
+- **Input:** an investigation whose model asks for `get_run`, then
+  `get_event` 1, 3, and 3 again with `start`, then answers; the fake viewer
+  counts its requests.
+- **Expected:** exactly one request, `/api/run/ok`. The tool answers the model
+  gets are the same text as `get_run` / `get_event` on that run.
+- **Failure modes:** a tool still fetching (more than one request); the cut-down
+  changing on the way (different text from before).
+- **Verified:** automated (`test_investigator.py`).
+
+### Case 32 — changed: the viewer going down
+- **Before:** the viewer answers the first request, then refuses → the
+  investigation stopped with `ViewerUnavailable` (503).
+- **Now:**
+  - viewer down **at the start** → `ViewerUnavailable` (503 with `dash`) and
+    **zero** model calls;
+  - viewer down **after the start** → no effect; the investigation finishes
+    from its copy.
+- **Verified:** automated (`test_investigator.py`).
+
+### Live check
+- One real investigation of run `800dfeb3` against the real viewer (through
+  the tunnel) and the real model, with every request to the viewer counted:
+  exactly one `/api/run/<id>`, and a valid report.
+- **Verified live:** 2026-10-19, run `800dfeb3`, `deepseek/deepseek-v4.1-flash`:
+  9 tool calls, **1** request to the viewer, status `done`. Each tool line in
+  the log went from ~0.2 s to 0.0 s.

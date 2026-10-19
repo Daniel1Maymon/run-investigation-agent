@@ -2,13 +2,9 @@
 import json
 import logging
 
-import httpx
-import pytest
-
 from app import config, investigator, logs
-from app.adapters import openclaw
 from app.models.base import ModelError
-from tests.conftest import REPORT, FakeModel, ask, fake_viewer, say
+from tests.conftest import REPORT, FakeModel, ask, say
 
 SECRET = "the run's private words"
 
@@ -83,19 +79,6 @@ def test_case50_step_limit_and_model_error(viewer, caplog):
     investigator.investigate(viewer, FakeModel(ModelError("model call failed: overloaded")), "ok")
     assert "error: model call failed: overloaded" in _lines(caplog)[-1]
 
-
-def test_case50_viewer_down(caplog):
-    caplog.set_level(logging.INFO, logger="app")
-    answered = []
-    def first_then_refuse(request):
-        if answered:
-            raise httpx.ConnectError("connection refused", request=request)
-        answered.append(1)
-        return fake_viewer(request)
-    with openclaw.make_client(httpx.MockTransport(first_then_refuse)) as client:
-        with pytest.raises(openclaw.ViewerUnavailable):
-            investigator.investigate(client, FakeModel(ask("get_run")), "ok")
-    assert "viewer down during tool get_run()" in _lines(caplog)[-1]
 
 
 def test_case50_httpx_request_lines_are_off():

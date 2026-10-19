@@ -87,9 +87,9 @@ def test_case22_prior_context_and_dropped_content_are_marked():
     assert e0.prior and e0.offset_ms == -5000 and not e0.not_recorded
     assert not e1.prior and e1.not_recorded and e1.is_error and e1.tool == "read"
 
-# The tools themselves: fetch through the adapter, return plain JSON.
+# The tools themselves: cut down a fetched run, return plain JSON.
 
 def test_tools_return_plain_json(viewer):
-    o = tools.get_run(viewer, "r1")
+    o = tools.get_run(raw=openclaw.fetch_run(client=viewer, run_id="r1"))
     assert o["run_id"] == "r1" and o["events"] == []
     json.dumps(o)  # what the model will receive must serialise

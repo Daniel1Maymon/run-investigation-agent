@@ -67,9 +67,12 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
                 clock: Callable[[], float] = time.monotonic) -> Investigation:
     """Investigate one run. `clock` is swappable so tests can jump past the time limit."""
     started = clock()
-    # Raises RunNotFound (→ 404) before any model call. The event count is
+    # The investigation's only call to the viewer (docs/decisions/0008): every
+    # tool call is answered from this copy. Raises RunNotFound (→ 404) or
+    # ViewerUnavailable (→ 503) before any model call. The event count is
     # needed to check the report's evidence.
-    n_events = len(tools.get_run(client, run_id)["events"])
+    raw = openclaw.fetch_run(client=client, run_id=run_id)
+    n_events = len(tools.get_run(raw=raw)["events"])
     say = _Log(run_id)
     say.info("start  %s  %d events", model.name, n_events)
 
@@ -122,7 +125,7 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
 
         # 2. It asked for tools: run them, send the answers back, go again.
         if reply.tool_calls:
-            answers = [_run_tool(client, run_id, call, steps, say) for call in reply.tool_calls]
+            answers = [_run_tool(raw=raw, call=call, steps=steps, say=say) for call in reply.tool_calls]
             history.append(Message(role="user", tool_results=answers))
             continue
 
@@ -138,24 +141,20 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
     return finish("stopped", f"step limit ({config.MAX_STEPS} model calls)")
 
 
-def _run_tool(client: httpx.Client, run_id: str, call: ToolCall,
-              steps: list[Step], say: "_Log") -> ToolResult:
-    """Errors the model can fix go back to it. ViewerUnavailable is not caught:
-    the model can't fix the tunnel, so it stops the investigation (→ 503)."""
+def _run_tool(raw: dict, call: ToolCall, steps: list[Step], say: "_Log") -> ToolResult:
+    """Answered from the run fetched at the start, so no tool call touches the
+    viewer. Errors the model can fix go back to it."""
     began = time.monotonic()
     try:
         if call.name == "get_run":
-            out = tools.get_run(client, run_id)
+            out = tools.get_run(raw=raw)
         elif call.name == "get_event":
             if "event_id" not in call.input:
                 raise ValueError("get_event needs event_id")
-            out = tools.get_event(client, run_id, int(call.input["event_id"]),
-                                  int(call.input.get("start", 0)))
+            out = tools.get_event(raw=raw, event_id=int(call.input["event_id"]),
+                                  start=int(call.input.get("start", 0)))
         else:
             raise ValueError(f"unknown tool {call.name!r}; the tools are get_run and get_event")
-    except openclaw.ViewerUnavailable:
-        say.info("viewer down during tool %s", _call(call))
-        raise
     except (openclaw.EventNotFound, ValueError, TypeError) as ex:
         steps.append(Step(tool=call.name, input=call.input, ok=False, note=str(ex)))
         say.info("tool %s  error: %s", _call(call), ex)

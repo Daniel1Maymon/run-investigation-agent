@@ -1,20 +1,18 @@
 """The investigator's tools. Read-only. Each returns plain JSON, the only thing
 the model ever sees of a run. See docs/investigation-agent-design.md §5.
 
-The tools know nothing about OpenClaw: the adapter makes the API call
-(fetch_run) and translates the answer into the shared shape (to_overview,
-event_detail). Errors (RunNotFound, EventNotFound, ViewerUnavailable) are
-raised as-is; step 2's agent loop turns them into messages the model can read."""
-import httpx
-
+The tools know nothing about OpenClaw and make no API call. They are given the
+run as the viewer returned it (`raw`, from the adapter's fetch_run) and only cut
+it down, through the adapter's translation (to_overview, event_detail). The
+caller fetches once and reuses it for every tool call: see docs/decisions/0008.
+EventNotFound is raised as-is; the agent loop turns it into a message the model
+can read."""
 from app.adapters import openclaw
 
-def get_run(client: httpx.Client, run_id: str) -> dict:
+def get_run(raw: dict) -> dict:
     """The run's facts and its numbered events, each as a short preview."""
-    raw = openclaw.fetch_run(client=client, run_id=run_id)
     return openclaw.to_overview(raw=raw).model_dump()
 
-def get_event(client: httpx.Client, run_id: str, event_id: int, start: int = 0) -> dict:
+def get_event(raw: dict, event_id: int, start: int = 0) -> dict:
     """The full content of one event, PAGE_CHARS at a time."""
-    raw = openclaw.fetch_run(client=client, run_id=run_id)
     return openclaw.event_detail(raw=raw, event_id=event_id, start=start).model_dump()

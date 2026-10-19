@@ -66,14 +66,15 @@ def get_run(run_id: str, client: httpx.Client = Depends(viewer_client)) -> dict:
 @app.get("/runs/{run_id}/overview")
 def run_overview(run_id: str, client: httpx.Client = Depends(viewer_client)) -> dict:
     # Exactly what the investigator's get_run tool returns.
-    return tools.get_run(client, run_id)
+    return tools.get_run(raw=openclaw.fetch_run(client=client, run_id=run_id))
 
 
 @app.get("/runs/{run_id}/events/{event_id}")
 def run_event(run_id: str, event_id: int, start: int = 0,
               client: httpx.Client = Depends(viewer_client)) -> dict:
     # Exactly what the investigator's get_event tool returns.
-    return tools.get_event(client, run_id, event_id, start)
+    return tools.get_event(raw=openclaw.fetch_run(client=client, run_id=run_id),
+                           event_id=event_id, start=start)
 
 
 @app.post("/runs/{run_id}/investigate")

@@ -24,3 +24,5 @@
     model provider (plain httpx adapter); Claude direct stays available
   - `0007-investigation-log.md` — one log line per step in the server's
     terminal; content and thinking only at `LOG_LEVEL=DEBUG`
+  - `0008-fetch-run-once.md` — one download of the run per investigation;
+    the tools only cut down that copy
