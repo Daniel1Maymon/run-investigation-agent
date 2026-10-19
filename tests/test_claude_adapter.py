@@ -92,3 +92,13 @@ def test_case25_api_error_becomes_model_error():
     fake = SimpleNamespace(messages=SimpleNamespace(create=create))
     with pytest.raises(ModelError, match="model call failed"):
         claude.ClaudeModel("claude-x", client=fake).next("", [], HISTORY, timeout=180)
+
+
+# Case 49
+
+def test_case49_tokens_but_no_cost():
+    response = SimpleNamespace(stop_reason="end_turn",
+                               content=[SimpleNamespace(type="text", text="{}")],
+                               usage=SimpleNamespace(input_tokens=120, output_tokens=7))
+    reply = claude.from_claude(response)
+    assert (reply.in_tokens, reply.out_tokens, reply.cost) == (120, 7, None)

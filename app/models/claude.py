@@ -54,8 +54,12 @@ def to_claude_message(m: Message) -> dict:
 
 
 def from_claude(response) -> ModelReply:
+    usage = getattr(response, "usage", None)
     return ModelReply(
         text="".join(b.text for b in response.content if b.type == "text"),
         tool_calls=[ToolCall(id=b.id, name=b.name, input=b.input)
                     for b in response.content if b.type == "tool_use"],
-        cut_off=response.stop_reason == "max_tokens")
+        cut_off=response.stop_reason == "max_tokens",
+        # Claude's API returns tokens but no price, so cost stays unknown.
+        in_tokens=getattr(usage, "input_tokens", None),
+        out_tokens=getattr(usage, "output_tokens", None))

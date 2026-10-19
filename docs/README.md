@@ -22,3 +22,5 @@
     12-call / 180 s limits
   - `0006-openrouter-default-provider.md` — OpenRouter is the default
     model provider (plain httpx adapter); Claude direct stays available
+  - `0007-investigation-log.md` — one log line per step in the server's
+    terminal; content and thinking only at `LOG_LEVEL=DEBUG`

@@ -526,3 +526,57 @@ Record which model was used.
   the tools and the translated tool call actually sent.
 - Case 30's fake clock repeats its last time forever, so an extra clock read
   can't break it.
+
+## Step 3 (part 1): a log you can watch
+
+One line for each thing that happens in an investigation, written by the loop
+(the only part that sees the whole story), in the server's terminal. The
+adapters only *report* token counts, cost and the model's thinking with each
+reply; the one line they write is a retry. The run's content and the model's
+words are kept out of the default log (they are long and private) and appear
+only with `LOG_LEVEL=DEBUG`. The `httpx` library's own line per request is
+turned off, so it doesn't double the noise. See docs/decisions/0007.
+
+### Case 48 — the log tells the story of an investigation
+- **Input:** the happy path of case 26 with a fake model whose replies carry
+  token counts, a cost and some thinking; the log captured at INFO, then at DEBUG.
+- **Expected, at INFO**, each line prefixed by the run's id:
+  - `start`, with the model and the number of events;
+  - one `call N` line per model call, with seconds, tokens in/out, cost, and
+    what the model asked for (`→ get_run`, `→ final answer`);
+  - one `tool` line per tool, ok or error, with the size of the answer;
+  - `done` with the totals: calls, seconds, tokens in/out, cost.
+  None of the run's content or the model's thinking is in it.
+- **Expected, at DEBUG:** the model's thinking and its text are logged too.
+- **Failure modes:** a reply with no token counts (a fake, or a provider that
+  doesn't say) crashes the log line. It must show `?` instead. If any call's
+  cost is unknown, the total cost is `?`, never a wrong total.
+- **Verified:** automated (`test_logs.py`).
+
+### Case 49 — the adapters report tokens, cost and thinking
+- **Input:** an OpenRouter reply with `usage` (`prompt_tokens`,
+  `completion_tokens`, `cost`) and `message.reasoning`; a Claude reply with
+  `usage` (`input_tokens`, `output_tokens`).
+- **Expected:** OpenRouter → in, out, cost and thinking filled in. The
+  request asks for usage (`"usage": {"include": true}`). Claude → in and out
+  filled in, cost unknown (`None`): Claude's API doesn't return a price.
+  A reply without `usage` still works (`None`s).
+- **Verified:** automated (`test_openrouter_adapter.py`, `test_claude_adapter.py`).
+
+### Case 50 — things going wrong are in the log
+- **Input:** case 28 (rejected reports), case 37 (cut off), case 27 (tool
+  error), case 29 (step limit), case 39 (model error), case 32 (viewer down),
+  case 47 (a 429 retried).
+- **Expected:** a line for each, in plain words: `report rejected: <why>`,
+  `→ cut off`, `tool get_event(event_id=99)  error: … no event 99`, `stopped: step limit
+  (12 model calls)`, `error: model call failed: …`, `viewer down`, `retry 1
+  after HTTP 429`. The `httpx` logger is at WARNING.
+- **Verified:** automated.
+
+### Live check
+- Run one investigation with the server and watch the terminal. Then again
+  with `LOG_LEVEL=DEBUG` to see the thinking.
+- **Verified live:** 2026-10-18, run `51bb2e1a` through a real server at DEBUG, with
+  `deepseek/deepseek-v4.1-flash`: 17 lines in all (4 calls, 6 tools, start, done),
+  thinking and the report text shown at DEBUG only. Totals: 9.2 s, in 10,357 /
+  out 1,081 tokens, $0.0015.

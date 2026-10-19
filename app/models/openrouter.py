@@ -1,6 +1,7 @@
 """OpenRouter adapter: the only module that knows OpenRouter's API format
 (the OpenAI "chat completions" format). Plain httpx, no SDK. See docs/decisions/0006."""
 import json
+import logging
 import os
 import time
 
@@ -8,6 +9,8 @@ import httpx
 
 from app.models.base import (Message, ModelError, ModelNotConfigured, ModelReply,
                              ToolCall, ToolSpec)
+
+log = logging.getLogger(__name__)
 
 URL = "https://openrouter.ai/api/v1/chat/completions"
 RETRIES = 2
@@ -31,6 +34,7 @@ class OpenRouterModel:
     def next(self, instructions: str, tools: list[ToolSpec],
              history: list[Message], *, timeout: float) -> ModelReply:
         body = {"model": self.name, "max_tokens": self.max_tokens,
+                "usage": {"include": True},                 # tokens and cost (case 49)
                 "tools": [to_openrouter_tool(t) for t in tools],
                 "messages": [{"role": "system", "content": instructions}]
                             + [m for h in history for m in to_openrouter_messages(h)]}
@@ -44,9 +48,12 @@ class OpenRouterModel:
             except httpx.TransportError as ex:          # timeouts included
                 if last:
                     raise ModelError(f"model call failed: {ex!r}") from ex
+                why = type(ex).__name__
             else:
                 if response.status_code not in RETRY_STATUS or last:
                     return from_openrouter(_ok_json(response))
+                why = f"HTTP {response.status_code}"
+            log.info("retry %d after %s", attempt + 1, why)
             self.sleep(attempt + 1)
         raise AssertionError("unreachable")
 
@@ -89,12 +96,15 @@ def to_openrouter_messages(m: Message) -> list[dict]:
 def from_openrouter(data: dict) -> ModelReply:
     choice = data["choices"][0]
     msg = choice["message"]
+    usage = data.get("usage") or {}
     return ModelReply(
         text=msg.get("content") or "",
         tool_calls=[ToolCall(id=c["id"], name=c["function"]["name"],
                              input=_arguments(c["function"].get("arguments")))
                     for c in msg.get("tool_calls") or []],
-        cut_off=choice.get("finish_reason") == "length")
+        cut_off=choice.get("finish_reason") == "length",
+        in_tokens=usage.get("prompt_tokens"), out_tokens=usage.get("completion_tokens"),
+        cost=usage.get("cost"), thinking=msg.get("reasoning") or "")
 
 
 def _arguments(raw: str | None) -> dict:

@@ -14,3 +14,6 @@ MODEL = os.environ.get("INVESTIGATOR_MODEL") or DEFAULT_MODELS.get(MODEL_PROVIDE
 # Hard limits for one investigation (docs/decisions/0005).
 MAX_STEPS = int(os.environ.get("INVESTIGATOR_MAX_STEPS", "12"))        # model calls
 MAX_SECONDS = float(os.environ.get("INVESTIGATOR_MAX_SECONDS", "180"))
+# The investigation log (docs/decisions/0007): INFO = one line per step,
+# DEBUG = also the model's thinking and words.
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()

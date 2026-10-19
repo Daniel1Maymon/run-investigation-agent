@@ -6,6 +6,7 @@ the report as JSON. Speaks only the model-neutral shapes in app/models/base.py.
 See docs/decisions/0005.
 """
 import json
+import logging
 import time
 from collections.abc import Callable
 
@@ -14,8 +15,11 @@ from pydantic import ValidationError
 
 from app import config, tools
 from app.adapters import openclaw
-from app.models.base import Message, Model, ModelError, ToolCall, ToolResult, ToolSpec
+from app.models.base import (Message, Model, ModelError, ModelReply, ToolCall, ToolResult,
+                             ToolSpec)
 from app.schema import Investigation, Report, Step
+
+log = logging.getLogger(__name__)
 
 INSTRUCTIONS = """You investigate one run of another AI agent (an OpenClaw run) and
 report whether its task was completed, what went wrong, and what to check next.
@@ -66,15 +70,24 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
     # Raises RunNotFound (→ 404) before any model call. The event count is
     # needed to check the report's evidence.
     n_events = len(tools.get_run(client, run_id)["events"])
+    say = _Log(run_id)
+    say.info("start  %s  %d events", model.name, n_events)
 
     history = [Message(role="user", text=f"Investigate run {run_id}.")]
     steps: list[Step] = []
     calls = 0
+    replies: list[ModelReply] = []
 
     def finish(status, reason=None, report=None) -> Investigation:
-        return Investigation(run_id=run_id, model=model.name, status=status, reason=reason,
-                             report=report, model_calls=calls,
-                             seconds=round(clock() - started, 1), steps=steps)
+        inv = Investigation(run_id=run_id, model=model.name, status=status, reason=reason,
+                            report=report, model_calls=calls,
+                            seconds=round(clock() - started, 1), steps=steps)
+        costs = [r.cost for r in replies]
+        say.info("%s%s  %d calls  %.1fs  %s  %s", status, f": {reason}" if reason else "",
+                 calls, inv.seconds, _tokens(*(_sum(getattr(r, k) for r in replies)
+                                               for k in ("in_tokens", "out_tokens"))),
+                 _dollars(None if None in costs else sum(costs)))
+        return inv
 
     time_limit = f"time limit ({config.MAX_SECONDS:.0f}s)"
     while calls < config.MAX_STEPS:
@@ -85,6 +98,7 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
         # 1. Ask the model, with the whole conversation so far. It gets only the
         # seconds that are left, so one slow call can't run past the limit.
         calls += 1
+        began = time.monotonic()      # for the log only; the limit uses `clock`
         try:
             reply = model.next(INSTRUCTIONS, TOOLS, history, timeout=left)
         except ModelError as ex:
@@ -93,6 +107,8 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
             if clock() - started >= config.MAX_SECONDS:
                 return finish("stopped", time_limit)
             return finish("error", str(ex))
+        replies.append(reply)
+        say.call(calls, time.monotonic() - began, reply)
 
         if reply.cut_off:
             # Ask again, shorter. A tool call in a cut-off reply may have half its
@@ -106,7 +122,7 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
 
         # 2. It asked for tools: run them, send the answers back, go again.
         if reply.tool_calls:
-            answers = [_run_tool(client, run_id, call, steps) for call in reply.tool_calls]
+            answers = [_run_tool(client, run_id, call, steps, say) for call in reply.tool_calls]
             history.append(Message(role="user", tool_results=answers))
             continue
 
@@ -115,6 +131,7 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
         steps.append(Step(tool=None, ok=report is not None, note=problem or "final report"))
         if report:
             return finish("done", report=report)
+        say.info("report rejected: %s", problem)
         history.append(Message(role="user", text=f"{problem} Send the corrected report "
                                                  "as one JSON object and nothing else."))
 
@@ -122,9 +139,10 @@ def investigate(client: httpx.Client, model: Model, run_id: str, *,
 
 
 def _run_tool(client: httpx.Client, run_id: str, call: ToolCall,
-              steps: list[Step]) -> ToolResult:
+              steps: list[Step], say: "_Log") -> ToolResult:
     """Errors the model can fix go back to it. ViewerUnavailable is not caught:
     the model can't fix the tunnel, so it stops the investigation (→ 503)."""
+    began = time.monotonic()
     try:
         if call.name == "get_run":
             out = tools.get_run(client, run_id)
@@ -135,12 +153,64 @@ def _run_tool(client: httpx.Client, run_id: str, call: ToolCall,
                                   int(call.input.get("start", 0)))
         else:
             raise ValueError(f"unknown tool {call.name!r}; the tools are get_run and get_event")
+    except openclaw.ViewerUnavailable:
+        say.info("viewer down during tool %s", _call(call))
+        raise
     except (openclaw.EventNotFound, ValueError, TypeError) as ex:
         steps.append(Step(tool=call.name, input=call.input, ok=False, note=str(ex)))
+        say.info("tool %s  error: %s", _call(call), ex)
         return ToolResult(call_id=call.id, content=str(ex), is_error=True)
     text = json.dumps(out, ensure_ascii=False)
     steps.append(Step(tool=call.name, input=call.input, result_chars=len(text)))
+    say.info("tool %s  ok  %.1fs  %s chars", _call(call), time.monotonic() - began,
+             f"{len(text):,}")
     return ToolResult(call_id=call.id, content=text)
+
+
+# ---- The log (TEST_PLAN cases 48–50, docs/decisions/0007) ----
+
+class _Log:
+    """One line per thing that happens, each starting with the run's id. Never the
+    run's content at INFO: the model's thinking and words only at DEBUG."""
+
+    def __init__(self, run_id: str):
+        self.prefix = f"[{run_id[:8]}] "
+
+    def info(self, msg: str, *args) -> None:
+        log.info(self.prefix + msg, *args)
+
+    def call(self, n: int, seconds: float, reply: ModelReply) -> None:
+        if reply.cut_off:
+            then = "cut off"
+        elif reply.tool_calls:
+            then = ", ".join(_call(c) for c in reply.tool_calls)
+        else:
+            then = "final answer"
+        self.info("call %d  %.1fs  %s  %s  → %s", n, seconds,
+                  _tokens(reply.in_tokens, reply.out_tokens), _dollars(reply.cost), then)
+        if reply.thinking:
+            log.debug(self.prefix + "  thinking: %s", reply.thinking)
+        if reply.text:
+            log.debug(self.prefix + "  says: %s", reply.text)
+
+
+def _call(call: ToolCall) -> str:
+    return f"{call.name}({', '.join(f'{k}={v}' for k, v in call.input.items())})"
+
+
+def _sum(values) -> int | None:
+    values = list(values)
+    return None if None in values else sum(values)
+
+
+def _tokens(n_in: int | None, n_out: int | None) -> str:
+    def n(v):
+        return "?" if v is None else f"{v:,}"
+    return f"in {n(n_in)} / out {n(n_out)}"
+
+
+def _dollars(cost: float | None) -> str:
+    return "$?" if cost is None else f"${cost:.4f}"
 
 
 _json = json.JSONDecoder()

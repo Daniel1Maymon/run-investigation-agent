@@ -134,3 +134,31 @@ def test_case47_each_try_gets_a_third_of_the_budget(monkeypatch):
     model.next("", [], HISTORY, timeout=180)
     assert openrouter.RETRIES == 2
     assert sent[0].extensions["timeout"] == {"connect": 60, "read": 60, "write": 60, "pool": 60}
+
+
+# Case 49
+
+def test_case49_usage_cost_and_thinking(monkeypatch):
+    data = _reply("{}")
+    data["usage"] = {"prompt_tokens": 38, "completion_tokens": 34, "cost": 2.3e-05}
+    data["choices"][0]["message"]["reasoning"] = "91 = 7 × 13"
+    model, sent = _model(monkeypatch, (200, data))
+    reply = model.next("", [], HISTORY, timeout=180)
+    assert (reply.in_tokens, reply.out_tokens, reply.cost) == (38, 34, 2.3e-05)
+    assert reply.thinking == "91 = 7 × 13"
+    assert json.loads(sent[0].content)["usage"] == {"include": True}
+
+
+def test_case49_no_usage_still_works():
+    reply = openrouter.from_openrouter(_reply("{}"))
+    assert (reply.in_tokens, reply.out_tokens, reply.cost, reply.thinking) == (None, None, None, "")
+
+
+# Case 50
+
+def test_case50_retry_is_logged(monkeypatch, caplog):
+    import logging
+    caplog.set_level(logging.INFO, logger="app")
+    model, _ = _model(monkeypatch, (429, {"error": "slow down"}), (200, _reply("{}")))
+    model.next("", [], HISTORY, timeout=180)
+    assert "retry 1 after HTTP 429" in caplog.text

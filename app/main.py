@@ -7,10 +7,11 @@ import httpx
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 
-from app import investigator, models, tools
+from app import investigator, logs, models, tools
 from app.adapters import openclaw
 from app.models.base import Model, ModelNotConfigured
 
+logs.setup()
 app = FastAPI(title="Run Investigation Agent")
 
 UI_PAGE = Path(__file__).parent / "ui" / "index.html"

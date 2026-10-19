@@ -11,10 +11,10 @@ from app.adapters import openclaw
 
 def get_run(client: httpx.Client, run_id: str) -> dict:
     """The run's facts and its numbered events, each as a short preview."""
-    raw = openclaw.fetch_run(client, run_id)
-    return openclaw.to_overview(raw).model_dump()
+    raw = openclaw.fetch_run(client=client, run_id=run_id)
+    return openclaw.to_overview(raw=raw).model_dump()
 
 def get_event(client: httpx.Client, run_id: str, event_id: int, start: int = 0) -> dict:
     """The full content of one event, PAGE_CHARS at a time."""
-    raw = openclaw.fetch_run(client, run_id)
-    return openclaw.event_detail(raw, event_id, start).model_dump()
+    raw = openclaw.fetch_run(client=client, run_id=run_id)
+    return openclaw.event_detail(raw=raw, event_id=event_id, start=start).model_dump()

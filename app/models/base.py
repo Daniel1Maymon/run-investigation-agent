@@ -43,6 +43,11 @@ class ModelReply(BaseModel):
     text: str
     tool_calls: list[ToolCall]
     cut_off: bool = False         # it hit its output limit, so the reply is incomplete
+    # For the log (case 49). None = the provider didn't say.
+    in_tokens: int | None = None
+    out_tokens: int | None = None
+    cost: float | None = None     # US dollars
+    thinking: str = ""            # the model's reasoning, if the provider returns it
 
 
 class ModelNotConfigured(Exception):
