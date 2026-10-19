@@ -119,12 +119,12 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
     <li>If not, what went wrong, pointing at the exact message or step.</li>
     <li>What to check or fix next.</li>
   </ol>
-  <p>It only reads. It never changes anything. The first agents it investigates run on <b>OpenClaw</b>, an agent platform. It gets their records from an existing tool called the <b>trace viewer</b>.</p>
-  <p><b>Where we are:</b> the foundation is built. It can already fetch any run from the trace viewer. The "brain" that reads the run and writes the diagnosis comes next.</p>
+  <p>It only reads. It never changes anything. The agents it investigates run on <b>OpenClaw</b>, an agent platform. It gets their records from an existing tool called the <b>trace viewer</b>.</p>
+  <p><b>Where we are:</b> it works end to end. You press Investigate on a run, the AI model reads the run through three tools, and hands in a checked report. Next comes evaluation: testing it on runs where we already know the right answer.</p>
 </section>
 
 <header>
-  <div class="eyebrow">run-investigation-agent · skeleton · C4 model</div>
+  <div class="eyebrow">run-investigation-agent · C4 model · as of October 19, 2026</div>
   <h1>The investigation agent at four zoom levels</h1>
   <p class="lead">The C4 model draws the same system four times, each one closer in, like zooming a map from country to city to street to building. Each level answers one question. You stop zooming when you have the answer you need.</p>
   <nav class="ladder" aria-label="Zoom levels">
@@ -134,9 +134,8 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
     <a href="#code"><span class="n">Level 4</span><b>Code</b><span>Which functions run, in what order?</span></a>
   </nav>
   <div class="legend">
-    <span><i class="lg-built"></i>Built and tested</span>
+    <span><i class="lg-built"></i>Ours, built and tested</span>
     <span><i class="lg-ext"></i>Already exists, not ours</span>
-    <span><i class="lg-later"></i>Planned, not built yet</span>
     <span><i class="lg-person"></i>A person</span>
   </div>
 </header>
@@ -147,10 +146,9 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
   <p class="q">Who uses it, and what does it talk to?</p>
   <p>Our whole system is one box. No technology, no files. Just the people and the outside systems around it.</p>
   <div class="diagram">
-  <svg viewBox="0 0 760 290" role="img" aria-label="Context diagram: Daniel gives a run ID to the Run Investigation Agent, which reads run data from the existing OpenClaw trace viewer, and later will ask an AI model.">
+  <svg viewBox="0 0 760 290" role="img" aria-label="Context diagram: Daniel gives a run ID to the Run Investigation Agent, which reads run data from the existing OpenClaw trace viewer and asks an AI model through OpenRouter what to look at next.">
     <defs>
       <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
-      <marker id="a1l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah-l" d="M0,0 L10,5 L0,10 z"/></marker>
     </defs>
     <rect class="person" x="16" y="105" width="150" height="80" rx="40"/>
     <text class="t" x="91" y="140" text-anchor="middle">Daniel</text>
@@ -166,9 +164,10 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
     <text class="s" x="664" y="86" text-anchor="middle">holds every OpenClaw</text>
     <text class="s" x="664" y="104" text-anchor="middle">run · on Hetzner</text>
 
-    <rect class="later" x="584" y="176" width="160" height="84" rx="10"/>
-    <text class="later-t" x="664" y="210" text-anchor="middle">AI model (LLM)</text>
-    <text class="s" x="664" y="230" text-anchor="middle">not chosen yet</text>
+    <rect class="ext" x="584" y="164" width="160" height="96" rx="10"/>
+    <text class="t" x="664" y="200" text-anchor="middle">AI model</text>
+    <text class="s" x="664" y="220" text-anchor="middle">through OpenRouter</text>
+    <text class="s" x="664" y="238" text-anchor="middle">cheap models only</text>
 
     <path class="arr" d="M166 145 L258 145" marker-end="url(#a1)"/>
     <text class="lab" x="212" y="133" text-anchor="middle">run ID in</text>
@@ -177,13 +176,14 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
     <path class="arr" d="M498 118 L580 82" marker-end="url(#a1)"/>
     <text class="lab" x="530" y="86" text-anchor="middle">reads runs</text>
 
-    <path class="arr-l" d="M498 172 L580 210" marker-end="url(#a1l)"/>
-    <text class="lab-l" x="530" y="215" text-anchor="middle">later</text>
+    <path class="arr" d="M498 172 L580 208" marker-end="url(#a1)"/>
+    <text class="lab" x="530" y="215" text-anchor="middle">asks</text>
   </svg>
   </div>
   <ul class="points">
     <li>It only <b>reads</b>. Nothing in this picture lets it change OpenClaw or the server.</li>
     <li>The trace viewer already existed. We reuse it instead of reading the raw files ourselves.</li>
+    <li>The AI model decides what to look at and writes the diagnosis. The default is <code>deepseek/deepseek-v4.1-flash</code>; two other cheap models can be swapped in with one setting. (Decision record 0006.)</li>
   </ul>
 </section>
 
@@ -193,51 +193,71 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
   <p class="q">What runs, and where?</p>
   <p>Zoom into the boxes. A "container" here is anything that runs on its own or stores data: an app, a server, a database. (It has nothing to do with Docker containers. Same word, different meaning.)</p>
   <div class="diagram">
-  <svg viewBox="0 0 760 370" role="img" aria-label="Container diagram: on the Mac, the Investigation API calls through an SSH tunnel to the trace viewer web server on Hetzner, which reads the SQLite index and trajectory files.">
+  <svg viewBox="0 0 760 456" role="img" aria-label="Container diagram: on the Mac, the page in the browser calls the Investigation API. The API calls OpenRouter over the internet, and the trace viewer on Hetzner through an SSH tunnel. The trace viewer reads the SQLite index and trajectory files.">
     <defs>
       <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
     </defs>
-    <rect class="bnd" x="8" y="14" width="336" height="344" rx="14"/>
+    <rect class="bnd" x="8" y="14" width="336" height="426" rx="14"/>
     <text class="bnd-t" x="26" y="40">YOUR MAC</text>
-    <rect class="bnd" x="416" y="14" width="336" height="344" rx="14"/>
-    <text class="bnd-t" x="434" y="40">HETZNER SERVER</text>
+    <rect class="bnd" x="416" y="14" width="336" height="136" rx="14"/>
+    <text class="bnd-t" x="434" y="40">INTERNET</text>
+    <rect class="bnd" x="416" y="180" width="336" height="260" rx="14"/>
+    <text class="bnd-t" x="434" y="206">HETZNER SERVER</text>
 
-    <rect class="built" x="36" y="64" width="280" height="100" rx="10"/>
-    <text class="t" x="176" y="100" text-anchor="middle">Investigation API</text>
-    <text class="s" x="176" y="121" text-anchor="middle">our app · FastAPI</text>
-    <text class="m" x="176" y="142" text-anchor="middle">127.0.0.1:8000</text>
+    <rect class="built" x="36" y="56" width="280" height="62" rx="10"/>
+    <text class="t" x="176" y="83" text-anchor="middle">Page in your browser</text>
+    <text class="m" x="176" y="103" text-anchor="middle">app/ui/index.html</text>
 
-    <rect class="ext" x="36" y="232" width="280" height="96" rx="10"/>
-    <text class="t" x="176" y="266" text-anchor="middle">SSH tunnel</text>
-    <text class="s" x="176" y="287" text-anchor="middle">opened by the dash command</text>
-    <text class="m" x="176" y="307" text-anchor="middle">127.0.0.1:8765 → server</text>
+    <rect class="built" x="36" y="170" width="280" height="96" rx="10"/>
+    <text class="t" x="176" y="204" text-anchor="middle">Investigation API</text>
+    <text class="s" x="176" y="225" text-anchor="middle">our app · FastAPI</text>
+    <text class="m" x="176" y="245" text-anchor="middle">127.0.0.1:8000</text>
 
-    <rect class="ext" x="444" y="64" width="280" height="100" rx="10"/>
-    <text class="t" x="584" y="100" text-anchor="middle">Trace viewer server</text>
-    <text class="s" x="584" y="121" text-anchor="middle">plain Python, no libraries</text>
-    <text class="m" x="584" y="142" text-anchor="middle">GET /api/run/&lt;id&gt;</text>
+    <rect class="ext" x="36" y="328" width="280" height="90" rx="10"/>
+    <text class="t" x="176" y="360" text-anchor="middle">SSH tunnel</text>
+    <text class="s" x="176" y="380" text-anchor="middle">opened by the dash command</text>
+    <text class="m" x="176" y="400" text-anchor="middle">127.0.0.1:8765 → server</text>
 
-    <rect class="ext" x="444" y="232" width="280" height="96" rx="10"/>
-    <text class="t" x="584" y="266" text-anchor="middle">Run data</text>
-    <text class="s" x="584" y="287" text-anchor="middle">SQLite index +</text>
-    <text class="s" x="584" y="305" text-anchor="middle">trajectory files</text>
+    <rect class="ext" x="444" y="54" width="280" height="80" rx="10"/>
+    <text class="t" x="584" y="84" text-anchor="middle">OpenRouter</text>
+    <text class="s" x="584" y="104" text-anchor="middle">one API for many AI models</text>
+    <text class="m" x="584" y="122" text-anchor="middle">needs OPENROUTER_API_KEY</text>
 
-    <path class="arr" d="M176 164 L176 228" marker-end="url(#a2)"/>
-    <rect class="lbg" x="184" y="186" width="92" height="20"/>
-    <text class="lab" x="188" y="200">HTTP request</text>
+    <rect class="ext" x="444" y="222" width="280" height="88" rx="10"/>
+    <text class="t" x="584" y="254" text-anchor="middle">Trace viewer server</text>
+    <text class="s" x="584" y="274" text-anchor="middle">plain Python, no libraries</text>
+    <text class="m" x="584" y="294" text-anchor="middle">/api/run/&lt;id&gt; · /api/runs</text>
 
-    <path class="arr" d="M316 280 L380 280 L380 114 L440 114" marker-end="url(#a2)"/>
-    <rect class="lbg" x="352" y="186" width="56" height="20"/>
-    <text class="lab" x="380" y="200" text-anchor="middle">encrypted</text>
+    <rect class="ext" x="444" y="340" width="280" height="82" rx="10"/>
+    <text class="t" x="584" y="372" text-anchor="middle">Run data</text>
+    <text class="s" x="584" y="392" text-anchor="middle">SQLite index +</text>
+    <text class="s" x="584" y="409" text-anchor="middle">trajectory files</text>
 
-    <path class="arr" d="M584 164 L584 228" marker-end="url(#a2)"/>
-    <rect class="lbg" x="592" y="186" width="44" height="20"/>
-    <text class="lab" x="596" y="200">reads</text>
+    <path class="arr" d="M176 118 L176 166" marker-end="url(#a2)"/>
+    <rect class="lbg" x="184" y="132" width="40" height="20"/>
+    <text class="lab" x="188" y="146">HTTP</text>
+
+    <path class="arr" d="M176 266 L176 324" marker-end="url(#a2)"/>
+    <rect class="lbg" x="184" y="285" width="92" height="20"/>
+    <text class="lab" x="188" y="299">HTTP request</text>
+
+    <path class="arr" d="M316 200 L380 200 L380 94 L440 94" marker-end="url(#a2)"/>
+    <rect class="lbg" x="354" y="136" width="52" height="20"/>
+    <text class="lab" x="380" y="150" text-anchor="middle">HTTPS</text>
+
+    <path class="arr" d="M316 372 L380 372 L380 266 L440 266" marker-end="url(#a2)"/>
+    <rect class="lbg" x="352" y="310" width="56" height="20"/>
+    <text class="lab" x="380" y="324" text-anchor="middle">encrypted</text>
+
+    <path class="arr" d="M584 310 L584 336" marker-end="url(#a2)"/>
+    <text class="lab" x="592" y="328">reads</text>
   </svg>
   </div>
   <p class="why"><b>Engineering choice:</b> our app talks to the viewer over HTTP instead of opening the database itself. The viewer already knows how to rebuild a run from those files, so we don't copy that code. And it works from the Mac through the same tunnel you already use. (Decision record 0001.)</p>
   <ul class="points">
     <li>If the tunnel is closed, our app can't see any runs. That's why <code>/health</code> reports "degraded" and tells you to run <code>dash</code>.</li>
+    <li>The page is one plain HTML file served by the API itself (0002). It refreshes the session list on its own, but only when the viewer says its data changed (0010).</li>
+    <li>The API key lives in <code>.env</code>, which is never committed.</li>
   </ul>
 </section>
 
@@ -245,74 +265,82 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
 <section id="components">
   <div class="lvl"><span class="n">Level 3</span><h2>Components</h2></div>
   <p class="q">What are the parts inside our app?</p>
-  <p>Zoom into just the Investigation API. Each box is one part with one job. The top row is the skeleton we built. The bottom row is the rest of the 7-piece plan.</p>
+  <p>Zoom into just the Investigation API. Each box is one part with one job. All of them are built.</p>
   <div class="diagram">
-  <svg viewBox="0 0 760 400" role="img" aria-label="Component diagram: inside the Investigation API, the web server routes call the OpenClaw adapter, which reads settings and calls the trace viewer. Planned parts: agent loop, LLM client, tools, report, investigator trace.">
+  <svg viewBox="0 0 760 460" role="img" aria-label="Component diagram: inside the Investigation API, the web server starts the agent loop. The loop fetches the run once through the OpenClaw adapter, asks the model through the model adapters, and runs the tools, which use the adapter's translation. Shapes, settings and the log are used by all parts.">
     <defs>
       <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
-      <marker id="a3l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah-l" d="M0,0 L10,5 L0,10 z"/></marker>
     </defs>
-    <rect class="bnd" x="8" y="14" width="744" height="372" rx="14"/>
+    <rect class="bnd" x="8" y="14" width="744" height="432" rx="14"/>
     <text class="bnd-t" x="26" y="40">INVESTIGATION API  ·  app/</text>
 
-    <rect class="built" x="30" y="62" width="200" height="112" rx="10"/>
-    <text class="t" x="130" y="94" text-anchor="middle">Web server</text>
-    <text class="m" x="130" y="114" text-anchor="middle">app/main.py</text>
-    <text class="s" x="130" y="136" text-anchor="middle">/health</text>
-    <text class="s" x="130" y="154" text-anchor="middle">/runs/{run_id}</text>
+    <rect class="built" x="30" y="58" width="180" height="108" rx="10"/>
+    <text class="t" x="120" y="88" text-anchor="middle">Web server</text>
+    <text class="m" x="120" y="107" text-anchor="middle">main.py</text>
+    <text class="s" x="120" y="129" text-anchor="middle">/runs · /sessions</text>
+    <text class="s" x="120" y="147" text-anchor="middle">/investigate · /health</text>
 
-    <rect class="built" x="290" y="62" width="220" height="112" rx="10"/>
-    <text class="t" x="400" y="94" text-anchor="middle">OpenClaw adapter</text>
-    <text class="m" x="400" y="114" text-anchor="middle">app/adapters/openclaw.py</text>
-    <text class="s" x="400" y="136" text-anchor="middle">the only part that</text>
-    <text class="s" x="400" y="154" text-anchor="middle">knows about OpenClaw</text>
+    <rect class="built" x="270" y="58" width="220" height="108" rx="10"/>
+    <text class="t" x="380" y="88" text-anchor="middle">Agent loop</text>
+    <text class="m" x="380" y="107" text-anchor="middle">investigator.py</text>
+    <text class="s" x="380" y="129" text-anchor="middle">one _Investigation per run</text>
+    <text class="s" x="380" y="147" text-anchor="middle">checks the report</text>
 
-    <rect class="built" x="570" y="62" width="160" height="112" rx="10"/>
-    <text class="t" x="650" y="94" text-anchor="middle">Settings</text>
-    <text class="m" x="650" y="114" text-anchor="middle">app/config.py</text>
-    <text class="s" x="650" y="136" text-anchor="middle">viewer address</text>
-    <text class="s" x="650" y="154" text-anchor="middle">5-second timeout</text>
+    <rect class="built" x="550" y="58" width="180" height="108" rx="10"/>
+    <text class="t" x="640" y="88" text-anchor="middle">Model adapters</text>
+    <text class="m" x="640" y="107" text-anchor="middle">models/</text>
+    <text class="s" x="640" y="129" text-anchor="middle">OpenRouter (default)</text>
+    <text class="s" x="640" y="147" text-anchor="middle">Claude direct</text>
 
-    <path class="arr" d="M230 118 L286 118" marker-end="url(#a3)"/>
-    <text class="lab" x="258" y="108" text-anchor="middle">asks</text>
-    <path class="arr" d="M510 118 L566 118" marker-end="url(#a3)"/>
-    <text class="lab" x="538" y="108" text-anchor="middle">reads</text>
+    <rect class="built" x="30" y="222" width="180" height="108" rx="10"/>
+    <text class="t" x="120" y="252" text-anchor="middle">OpenClaw adapter</text>
+    <text class="m" x="120" y="271" text-anchor="middle">adapters/openclaw.py</text>
+    <text class="s" x="120" y="293" text-anchor="middle">the only part that</text>
+    <text class="s" x="120" y="311" text-anchor="middle">knows about OpenClaw</text>
 
-    <path class="arr" d="M400 174 L400 214 L748 214" marker-end="url(#a3)"/>
-    <text class="lab" x="560" y="206" text-anchor="middle">to the trace viewer, through the tunnel</text>
+    <rect class="built" x="270" y="222" width="220" height="108" rx="10"/>
+    <text class="t" x="380" y="252" text-anchor="middle">Tools</text>
+    <text class="m" x="380" y="271" text-anchor="middle">tools.py</text>
+    <text class="s" x="380" y="293" text-anchor="middle">get_run · get_event</text>
+    <text class="s" x="380" y="311" text-anchor="middle">cut the run down, no API call</text>
 
-    <text class="bnd-t" x="30" y="252">PLANNED</text>
-    <rect class="later" x="30" y="266" width="128" height="92" rx="10"/>
-    <text class="later-t" x="94" y="300" text-anchor="middle">Agent loop</text>
-    <text class="s" x="94" y="320" text-anchor="middle">decides the</text>
-    <text class="s" x="94" y="337" text-anchor="middle">next step</text>
+    <path class="arr" d="M210 112 L266 112" marker-end="url(#a3)"/>
+    <text class="lab" x="238" y="102" text-anchor="middle">starts</text>
+    <path class="arr" d="M490 112 L546 112" marker-end="url(#a3)"/>
+    <text class="lab" x="518" y="102" text-anchor="middle">asks</text>
+    <path class="arr" d="M380 166 L380 218" marker-end="url(#a3)"/>
+    <rect class="lbg" x="388" y="182" width="60" height="20"/>
+    <text class="lab" x="392" y="196">runs</text>
+    <path class="arr" d="M120 166 L120 218" marker-end="url(#a3)"/>
+    <rect class="lbg" x="128" y="182" width="64" height="20"/>
+    <text class="lab" x="132" y="196">reads</text>
+    <path class="arr" d="M292 166 L206 222" marker-end="url(#a3)"/>
+    <rect class="lbg" x="232" y="170" width="76" height="20"/>
+    <text class="lab" x="270" y="184" text-anchor="middle">run, once</text>
+    <path class="arr" d="M270 276 L214 276" marker-end="url(#a3)"/>
+    <text class="lab" x="242" y="266" text-anchor="middle">uses</text>
 
-    <rect class="later" x="174" y="266" width="128" height="92" rx="10"/>
-    <text class="later-t" x="238" y="300" text-anchor="middle">LLM client</text>
-    <text class="s" x="238" y="320" text-anchor="middle">talks to the</text>
-    <text class="s" x="238" y="337" text-anchor="middle">AI model</text>
+    <path class="arr" d="M640 166 L640 196 L748 196" marker-end="url(#a3)"/>
+    <text class="lab" x="694" y="188" text-anchor="middle">to OpenRouter</text>
+    <path class="arr" d="M120 330 L120 352 L748 352" marker-end="url(#a3)"/>
+    <text class="lab" x="560" y="344" text-anchor="middle">to the trace viewer, through the tunnel</text>
 
-    <rect class="later" x="318" y="266" width="128" height="92" rx="10"/>
-    <text class="later-t" x="382" y="300" text-anchor="middle">Tools</text>
-    <text class="m" x="382" y="320" text-anchor="middle">get_run</text>
-    <text class="m" x="382" y="337" text-anchor="middle">get_event</text>
-
-    <rect class="later" x="462" y="266" width="128" height="92" rx="10"/>
-    <text class="later-t" x="526" y="300" text-anchor="middle">Report</text>
-    <text class="s" x="526" y="320" text-anchor="middle">verdict +</text>
-    <text class="s" x="526" y="337" text-anchor="middle">evidence</text>
-
-    <rect class="later" x="606" y="266" width="128" height="92" rx="10"/>
-    <text class="later-t" x="670" y="300" text-anchor="middle">Own trace</text>
-    <text class="s" x="670" y="320" text-anchor="middle">logs what the</text>
-    <text class="s" x="670" y="337" text-anchor="middle">investigator did</text>
-
-    <path class="arr-l" d="M340 266 L340 230 L360 230 L360 178" marker-end="url(#a3l)"/>
+    <text class="bnd-t" x="30" y="378">USED BY ALL</text>
+    <rect class="built" x="30" y="388" width="220" height="46" rx="8"/>
+    <text class="lab-m" x="140" y="408" text-anchor="middle">schema.py</text>
+    <text class="s" x="140" y="425" text-anchor="middle">shapes: events, report, steps</text>
+    <rect class="built" x="270" y="388" width="220" height="46" rx="8"/>
+    <text class="lab-m" x="380" y="408" text-anchor="middle">config.py</text>
+    <text class="s" x="380" y="425" text-anchor="middle">viewer, model, limits</text>
+    <rect class="built" x="510" y="388" width="220" height="46" rx="8"/>
+    <text class="lab-m" x="620" y="408" text-anchor="middle">logs.py</text>
+    <text class="s" x="620" y="425" text-anchor="middle">one log line per step</text>
   </svg>
   </div>
-  <p class="why"><b>Engineering choice:</b> only the adapter knows where OpenClaw data lives. Everything else asks the adapter. If you later investigate a different agent system, you write a second adapter and nothing else changes.</p>
+  <p class="why"><b>Engineering choice:</b> only the adapters know the outside world. The OpenClaw adapter is the only part that knows OpenClaw's format; the model adapters are the only parts that know a provider's API. The loop and the tools only see our own shapes. To investigate a different agent system, you write a second OpenClaw-style adapter; to try a different provider, a second model adapter. Nothing else changes. (0004, 0005.)</p>
   <ul class="points">
-    <li>The dashed arrow shows where the next phase plugs in: the tools will get their data from the same adapter.</li>
+    <li>The model has three tools. Two are in <code>tools.py</code>. The third, <code>submit_report</code>, is how the model finishes: its input is the report, and the loop checks it. Its schema is generated from <code>Report</code> in <code>schema.py</code>, so the shape is defined in one place (0009).</li>
+    <li>The run is downloaded once per investigation. The tools only cut that copy down, so the evidence can't change while the model works (0008).</li>
   </ul>
 </section>
 
@@ -320,59 +348,92 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
 <section id="code">
   <div class="lvl"><span class="n">Level 4</span><h2>Code</h2></div>
   <p class="q">Which functions run, in what order?</p>
-  <p>The closest zoom. The C4 model says this level is optional, since the code itself shows it. Here is the one request the skeleton handles, <code>GET /runs/{run_id}</code>, followed through the real functions, top to bottom.</p>
+  <p>The closest zoom. The C4 model says this level is optional, since the code itself shows it. Here is one investigation, <code>POST /runs/{run_id}/investigate</code>, followed through the real functions, top to bottom.</p>
   <div class="diagram">
-  <svg viewBox="0 0 760 380" role="img" aria-label="Sequence of function calls for GET /runs/{run_id}, from the caller through get_run and fetch_run to the trace viewer and back.">
+  <svg viewBox="0 0 760 580" role="img" aria-label="Sequence for one investigation: the page posts to main.py, which calls investigate(). It fetches the run once, then loops: ask the model, run the tool it picked, add the result to the history. When the model calls submit_report with a valid report, the investigation finishes and the report goes back to the page.">
     <defs>
       <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
     </defs>
-    <line class="life" x1="70" y1="66" x2="70" y2="370"/>
-    <line class="life" x1="225" y1="66" x2="225" y2="370"/>
-    <line class="life" x1="390" y1="66" x2="390" y2="370"/>
-    <line class="life" x1="545" y1="66" x2="545" y2="370"/>
-    <line class="life" x1="690" y1="66" x2="690" y2="370"/>
+    <rect class="bnd" x="262" y="240" width="490" height="216" rx="10"/>
+    <text class="bnd-t" x="276" y="260">LOOP · up to 12 model calls or 180 s</text>
 
-    <rect class="person" x="12" y="16" width="116" height="50" rx="25"/>
-    <text class="t" x="70" y="46" text-anchor="middle">You</text>
+    <line class="life" x1="60" y1="66" x2="60" y2="570"/>
+    <line class="life" x1="188" y1="66" x2="188" y2="570"/>
+    <line class="life" x1="320" y1="66" x2="320" y2="570"/>
+    <line class="life" x1="450" y1="66" x2="450" y2="570"/>
+    <line class="life" x1="578" y1="66" x2="578" y2="570"/>
+    <line class="life" x1="700" y1="66" x2="700" y2="570"/>
 
-    <rect class="built" x="150" y="16" width="150" height="50" rx="8"/>
-    <text class="lab-m" x="225" y="37" text-anchor="middle">main.py</text>
-    <text class="t" x="225" y="56" text-anchor="middle" style="font-size:14px">get_run()</text>
+    <rect class="person" x="10" y="16" width="100" height="50" rx="25"/>
+    <text class="t" x="60" y="46" text-anchor="middle" style="font-size:14px">Page</text>
 
-    <rect class="built" x="310" y="16" width="160" height="50" rx="8"/>
-    <text class="lab-m" x="390" y="37" text-anchor="middle">openclaw.py</text>
-    <text class="t" x="390" y="56" text-anchor="middle" style="font-size:14px">fetch_run()</text>
+    <rect class="built" x="128" y="16" width="120" height="50" rx="8"/>
+    <text class="lab-m" x="188" y="37" text-anchor="middle">main.py</text>
+    <text class="t" x="188" y="56" text-anchor="middle" style="font-size:13px">investigate_run()</text>
 
-    <rect class="ext" x="480" y="16" width="130" height="50" rx="8"/>
-    <text class="lab-m" x="545" y="37" text-anchor="middle">httpx</text>
-    <text class="t" x="545" y="56" text-anchor="middle" style="font-size:14px">client.get()</text>
+    <rect class="built" x="256" y="16" width="128" height="50" rx="8"/>
+    <text class="lab-m" x="320" y="37" text-anchor="middle">investigator.py</text>
+    <text class="t" x="320" y="56" text-anchor="middle" style="font-size:13px">investigate()</text>
 
-    <rect class="ext" x="620" y="16" width="130" height="50" rx="8"/>
-    <text class="t" x="685" y="46" text-anchor="middle" style="font-size:14px">Trace viewer</text>
+    <rect class="built" x="392" y="16" width="116" height="50" rx="8"/>
+    <text class="lab-m" x="450" y="37" text-anchor="middle">openclaw.py</text>
+    <text class="t" x="450" y="56" text-anchor="middle" style="font-size:13px">fetch_run()</text>
 
-    <path class="arr" d="M70 110 L221 110" marker-end="url(#a4)"/>
-    <text class="lab-m" x="146" y="102" text-anchor="middle">GET /runs/abc</text>
+    <rect class="built" x="518" y="16" width="120" height="50" rx="8"/>
+    <text class="lab-m" x="578" y="37" text-anchor="middle">model adapter</text>
+    <text class="t" x="578" y="56" text-anchor="middle" style="font-size:13px">next()</text>
 
-    <path class="arr" d="M225 150 L386 150" marker-end="url(#a4)"/>
-    <text class="lab-m" x="307" y="142" text-anchor="middle">fetch_run(client, "abc")</text>
+    <rect class="built" x="646" y="16" width="108" height="50" rx="8"/>
+    <text class="lab-m" x="700" y="37" text-anchor="middle">tools.py</text>
+    <text class="t" x="700" y="56" text-anchor="middle" style="font-size:13px">get_event()</text>
 
-    <path class="arr" d="M390 190 L541 190" marker-end="url(#a4)"/>
-    <text class="lab-m" x="466" y="182" text-anchor="middle">/api/run/abc</text>
+    <path class="arr" d="M60 100 L184 100" marker-end="url(#a4)"/>
+    <text class="lab-m" x="124" y="92" text-anchor="middle">POST …/investigate</text>
 
-    <path class="arr" d="M545 230 L686 230" marker-end="url(#a4)"/>
-    <text class="lab" x="616" y="222" text-anchor="middle">via the tunnel</text>
+    <path class="arr" d="M188 140 L316 140" marker-end="url(#a4)"/>
+    <text class="lab-m" x="252" y="132" text-anchor="middle">investigate()</text>
 
-    <path class="ret" d="M690 270 L394 270" marker-end="url(#a4)"/>
-    <text class="lab" x="542" y="262" text-anchor="middle">200 + the run as JSON</text>
+    <path class="arr" d="M320 180 L446 180" marker-end="url(#a4)"/>
+    <text class="lab" x="385" y="172" text-anchor="middle">fetch_run(), once</text>
 
-    <path class="ret" d="M390 310 L229 310" marker-end="url(#a4)"/>
-    <text class="lab" x="307" y="302" text-anchor="middle">the run (a dict)</text>
+    <path class="ret" d="M450 215 L324 215" marker-end="url(#a4)"/>
+    <text class="lab" x="385" y="207" text-anchor="middle">the run (raw)</text>
 
-    <path class="ret" d="M225 350 L74 350" marker-end="url(#a4)"/>
-    <text class="lab" x="146" y="342" text-anchor="middle">200 + JSON</text>
+    <path class="arr" d="M320 296 L574 296" marker-end="url(#a4)"/>
+    <text class="lab" x="447" y="288" text-anchor="middle">history + the 3 tools</text>
+
+    <path class="ret" d="M578 334 L324 334" marker-end="url(#a4)"/>
+    <text class="lab" x="447" y="326" text-anchor="middle">tool call: get_event 7</text>
+
+    <path class="arr" d="M320 372 L696 372" marker-end="url(#a4)"/>
+    <text class="lab-m" x="510" y="364" text-anchor="middle">get_event(raw=…, event_id=7)</text>
+
+    <path class="ret" d="M700 410 L324 410" marker-end="url(#a4)"/>
+    <text class="lab" x="510" y="402" text-anchor="middle">event 7 in full → history</text>
+
+    <text class="lab" x="507" y="440" text-anchor="middle">repeat until the model calls submit_report</text>
+
+    <text class="lab" x="330" y="486">valid report → finish(status="done")</text>
+
+    <path class="ret" d="M320 516 L192 516" marker-end="url(#a4)"/>
+    <text class="lab" x="256" y="508" text-anchor="middle">Investigation</text>
+
+    <path class="ret" d="M188 556 L64 556" marker-end="url(#a4)"/>
+    <text class="lab" x="124" y="548" text-anchor="middle">report + steps</text>
   </svg>
   </div>
-  <p>That's the happy path. The adapter turns each way the viewer can answer into a clear result, and the web server turns that into an HTTP status:</p>
+  <p>That's the happy path. An investigation can end in three ways, and the page shows which:</p>
+  <div class="tbl">
+  <table>
+    <thead><tr><th>Status</th><th>When</th><th>What you get</th></tr></thead>
+    <tbody>
+      <tr><td class="c ok">done</td><td>The model called <code>submit_report</code> with a valid report.</td><td>The report and every step.</td></tr>
+      <tr><td class="c">stopped</td><td>Our limits: 12 model calls or 180 seconds.</td><td>The steps so far and the reason. No report.</td></tr>
+      <tr><td class="c">error</td><td>A model call failed (for example, the provider was down).</td><td>The steps so far and the error. Still HTTP 200: the investigation answered, it just didn't finish.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Before the loop starts, the viewer can also say no. The adapter turns each answer into a clear result:</p>
   <div class="tbl">
   <table>
     <thead><tr><th>Viewer says</th><th>Adapter does</th><th>You get</th><th>Why</th></tr></thead>
@@ -384,13 +445,16 @@ footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; border-t
   </table>
   </div>
   <ul class="points">
-    <li><code>/health</code> takes the same path with <code>viewer_status()</code>. It never raises an error. It always answers, and reports "ok" or "degraded".</li>
-    <li>In the tests, the httpx box is swapped for a fake viewer, so all 9 tests run without the server or the tunnel.</li>
+    <li>Every reply from the model goes back into the history, so on the next call the model sees everything it asked for so far.</li>
+    <li>If the report is invalid (wrong shape, or it cites an event that doesn't exist), the loop answers the <code>submit_report</code> call with an error saying what's wrong, and the model fixes it, like a bad <code>get_event</code>. Plain text with no tool call is not accepted as a report.</li>
+    <li>In the tests, both the viewer and the model are swapped for fakes, so all 99 tests run without the server, the tunnel or an API key. A live run through the tunnel checks the real path.</li>
   </ul>
 </section>
 
 <footer>
   <span>The C4 model was created by Simon Brown. "C4" stands for its four levels: Context, Containers, Components, Code.</span>
-  <span>Matches the code as of the skeleton (pieces 1 and 5 of 7). Source: run-investigation-agent/app and docs/decisions/0001.</span>
+  <span>Matches the code as of October 19, 2026. Source: run-investigation-agent/app and docs/decisions/0001–0010.</span>
 </footer>
 </div>
+
+</body></html>

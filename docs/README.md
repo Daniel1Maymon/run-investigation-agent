@@ -1,11 +1,15 @@
 # Docs index
 
 - `investigation-agent-design.md` — the design: purpose, scope, components,
-  tools, report, implementation steps
-- `what-we-are-building.md` (+ `.html`) — plain-English picture: what the
-  skeleton is, all the pieces, which exist yet
-- `c4-model.html` — the skeleton drawn at the four C4 zoom levels
-  (context, containers, components, code)
+  tools, report, implementation steps; *As built* notes and step status
+- `what-we-are-building.md` (+ `.html`) — plain-English picture: all the
+  pieces, one investigation step by step, what's next
+- `c4-model.html` — the system at the four C4 zoom levels (context,
+  containers, components, code). Published copy:
+  https://claude.ai/artifact/8NZ41KP1KcdmddX9VsTQ18 — republish it from this
+  file when the file changes
+
+All three were last brought up to date on 2026-10-19 (decisions 0001–0010).
 - `../tests/TEST_PLAN.md` — every tested behaviour, written before the code
 - `decisions/` — why things are the way they are:
   - `0001-separate-repo-viewer-over-http.md` — own repo; runs are read

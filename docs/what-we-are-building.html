@@ -72,30 +72,16 @@ table.files td:first-child { white-space: nowrap; }
   .step .tag { grid-column: 2; justify-self: start; }
   table.files td:first-child { white-space: normal; }
 }
+.step.done .num { background: var(--card); }
+.ex { margin-top: 12px; }
 </style>
 </head>
 <body>
 <main>
   <h1>What we're building</h1>
-  <p class="sub">The Run Investigation Agent, and what "skeleton" means.</p>
+  <p class="sub">The Run Investigation Agent, and where it stands. Updated October 19, 2026.</p>
 
-  <h2><span class="n">1</span>What a skeleton is</h2>
-  <p>The <b>smallest version of the project that runs from start to end, but doesn't do the smart part yet.</b></p>
-  <div class="house">
-    <div class="card"><b>🏗️ House frame</b>Walls, doors, and pipes connected to the street. You can walk from the front door to the kitchen, and the tap works. Nobody lives there yet.</div>
-    <div class="card"><b>🛋️ Furniture, later</b>What makes it a home. It goes in once the frame is solid.</div>
-  </div>
-  <p>In our project, <b>the frame</b> is a small web server that fetches a run from your trace viewer and hands it back. <b>The furniture</b> is the AI agent that reads the run and writes a diagnosis. That comes later.</p>
-
-  <h2><span class="n">2</span>Why start with a skeleton</h2>
-  <p>When the AI part goes wrong later, we want to know it's the AI and not the plumbing. The skeleton answers the boring questions first:</p>
-  <ol>
-    <li>Can our code reach the trace viewer on the Hetzner server?</li>
-    <li>What happens when the tunnel is closed?</li>
-    <li>What happens when someone asks for a run that doesn't exist?</li>
-  </ol>
-
-  <h2><span class="n">3</span>The finished product</h2>
+  <h2><span class="n">1</span>What it does</h2>
   <div class="card">
     You give it <b>one run ID</b>. It gives back <b>a short report</b>:
     <ul>
@@ -106,65 +92,85 @@ table.files td:first-child { white-space: nowrap; }
     It only <b>reads</b>. It never changes anything on the server.
   </div>
 
-  <h2><span class="n">4</span>All the pieces, and which ones the skeleton has</h2>
+  <h2><span class="n">2</span>How we got here: skeleton first</h2>
+  <p>A skeleton is the <b>smallest version of the project that runs from start to end, but doesn't do the smart part yet.</b></p>
+  <div class="house">
+    <div class="card"><b>🏗️ The frame came first</b>A small web server that fetches a run from the trace viewer. It answered the boring questions: can we reach the server, what happens when the tunnel is closed, what happens with a wrong run ID.</div>
+    <div class="card"><b>🛋️ Then the furniture</b>The AI agent that reads the run and writes the report. Because the frame was already tested, every bug since then has been in the new part, not the plumbing.</div>
+  </div>
+  <p>Both are built now.</p>
+
+  <h2><span class="n">3</span>All the pieces</h2>
   <div class="legend">
-    <span class="tag done">✅ in the skeleton</span>
-    <span class="tag later">⏳ later</span>
-    <span class="tag exists">already exists</span>
+    <span class="tag done">✅ built</span>
+    <span class="tag exists">already existed</span>
   </div>
   <div class="flow">
     <div class="arrow">You send a run ID ↓</div>
-    <div class="step done"><div class="num">1</div><div><div class="t">Web server (FastAPI)</div><div class="d">The front door. You send it a request, it sends back an answer.</div></div><span class="tag done">✅ skeleton</span></div>
+    <div class="step done"><div class="num">1</div><div><div class="t">Web server + page (FastAPI)</div><div class="d">The front door. A page where you pick a run and press Investigate.</div></div><span class="tag done">✅ built</span></div>
     <div class="arrow">↓</div>
-    <div class="step later"><div class="num">2</div><div><div class="t">Agent loop</div><div class="d">The manager. It asks the model "what next?", runs the tool the model picks, and repeats until there's a report or a limit is hit.</div></div><span class="tag later">⏳ later</span></div>
+    <div class="step done"><div class="num">2</div><div><div class="t">Agent loop</div><div class="d">The manager. It asks the model “what next?”, runs the tool the model picks, and repeats until there's a report or a limit is hit (12 model calls or 180 seconds).</div></div><span class="tag done">✅ built</span></div>
     <div class="arrow">↓ ↑</div>
-    <div class="step later"><div class="num">3</div><div><div class="t">LLM</div><div class="d">The brain. It decides what to look at and writes the diagnosis.</div></div><span class="tag later">⏳ later</span></div>
+    <div class="step done"><div class="num">3</div><div><div class="t">LLM, through OpenRouter</div><div class="d">The brain. It decides what to look at and writes the diagnosis. Default: <code>deepseek/deepseek-v4.1-flash</code>.</div></div><span class="tag done">✅ built</span></div>
+    <div class="arrow">↓ asks for tools</div>
+    <div class="step done"><div class="num">4</div><div><div class="t">Tools: get_run, get_event, submit_report</div><div class="d">The only actions the brain may take: “show me the run”, “show me this one event in full”, and “here is my report”.</div></div><span class="tag done">✅ built</span></div>
     <div class="arrow">↓</div>
-    <div class="step later"><div class="num">4</div><div><div class="t">Tools: get_run, get_event</div><div class="d">The only actions the brain may take: "show me the run" and "show me this one message in full".</div></div><span class="tag later">⏳ later</span></div>
-    <div class="arrow">↓</div>
-    <div class="step done"><div class="num">5</div><div><div class="t">OpenClaw adapter</div><div class="d">The translator. The only file that knows where OpenClaw data lives and how to fetch it.</div></div><span class="tag done">✅ skeleton</span></div>
+    <div class="step done"><div class="num">5</div><div><div class="t">OpenClaw adapter</div><div class="d">The translator. The only file that knows where OpenClaw data lives and how to read it.</div></div><span class="tag done">✅ built</span></div>
     <div class="arrow">↓ HTTP, through the <code>dash</code> tunnel</div>
-    <div class="step exists"><div class="num">·</div><div><div class="t">Trace viewer on Hetzner</div><div class="d">The project you already have. It reads OpenClaw's runs.</div></div><span class="tag exists">exists</span></div>
+    <div class="step exists"><div class="num">·</div><div><div class="t">Trace viewer on Hetzner</div><div class="d">The project you already had. It reads OpenClaw's runs.</div></div><span class="tag exists">existed</span></div>
   </div>
   <div class="side">
-    <div class="step later"><div class="num">6</div><div><div class="t">Report</div><div class="d">The answer you read: outcome, evidence, cause, next step.</div></div></div>
-    <div class="step later"><div class="num">7</div><div><div class="t">Investigator trace</div><div class="d">A log of what the investigator itself did, so we can check its work.</div></div></div>
+    <div class="step done"><div class="num">6</div><div><div class="t">Report</div><div class="d">Handed in by the model, checked by the loop: outcome, summary, findings with event IDs, cause, next step.</div></div><span class="tag done">✅ built</span></div>
+    <div class="step done"><div class="num">7</div><div><div class="t">Investigator log</div><div class="d">One line per step in the server's terminal: which tool, how long, tokens, cost.</div></div><span class="tag done">✅ built</span></div>
   </div>
 
-  <h2><span class="n">5</span>What the skeleton can do today</h2>
-  <div class="card ep">
-    <h3><code>GET /health</code>: "Are you up, and can you reach the viewer?"</h3>
-    <table>
-      <tr><td>Tunnel open</td><td><code>"status": "ok"</code></td></tr>
-      <tr><td>Tunnel closed</td><td><code>"status": "degraded"</code> plus a hint to run <code>dash</code>. No crash.</td></tr>
+  <h2><span class="n">4</span>One investigation, step by step</h2>
+  <ol>
+    <li>You press <b>Investigate</b> on a run. The page sends <code>POST /runs/&lt;id&gt;/investigate</code>.</li>
+    <li>The server downloads the run from the trace viewer <b>once</b>.</li>
+    <li>The agent loop sends the model its instructions and the three tools.</li>
+    <li>The model asks for <code>get_run</code>: the list of everything that happened in the run, each as a short preview.</li>
+    <li>It asks for <code>get_event</code> on the events that look important, to read them in full.</li>
+    <li>When it has enough evidence, it calls <code>submit_report</code>.</li>
+    <li>The loop checks the report: right shape, and every event it points at really exists. If something is wrong, the model is told what and tries again.</li>
+    <li>The page shows the report and the list of steps the agent took.</li>
+  </ol>
+  <div class="card ex"><b>A real example</b> (run <code>800dfeb3</code>, October 19): 8 model calls, 56 seconds, less than one cent.</div>
+
+  <h2><span class="n">5</span>What you can ask the server</h2>
+  <div class="card">
+    <table class="files">
+      <tr><td><code>GET /</code></td><td>The page</td></tr>
+      <tr><td><code>GET /sessions</code></td><td>Recent sessions and their runs. The page refreshes it by itself when new runs arrive.</td></tr>
+      <tr><td><code>GET /runs/&lt;id&gt;</code></td><td>One run, as the viewer has it</td></tr>
+      <tr><td><code>POST /runs/&lt;id&gt;/investigate</code></td><td>Runs an investigation and returns the report and the steps</td></tr>
+      <tr><td><code>GET /health</code></td><td>“Are you up, and can you reach the viewer?” Tunnel closed → “degraded”, plus a hint to run <code>dash</code></td></tr>
+      <tr><td><code>GET /runs/&lt;id&gt;/overview</code><br><code>GET /runs/&lt;id&gt;/events/&lt;n&gt;</code></td><td>For debugging: exactly what the <code>get_run</code> and <code>get_event</code> tools give the model</td></tr>
     </table>
   </div>
-  <div class="card ep">
-    <h3><code>GET /runs/&lt;run id&gt;</code>: "Give me this run."</h3>
-    <table>
-      <tr><td>The run exists</td><td>You get the run back</td></tr>
-      <tr><td>The run doesn't exist</td><td>404, "not found"</td></tr>
-      <tr><td>Tunnel closed</td><td>503, "viewer unavailable", plus a hint to run <code>dash</code></td></tr>
-    </table>
-  </div>
+  <p>A wrong run ID gets “not found” (404). A closed tunnel gets “viewer unavailable” (503) with a hint to run <code>dash</code>.</p>
 
   <h2><span class="n">6</span>The files</h2>
   <div class="card">
     <table class="files">
-      <tr><td><code>app/main.py</code></td><td>The web server and its two endpoints</td></tr>
-      <tr><td><code>app/adapters/openclaw.py</code></td><td>Fetches runs from the trace viewer</td></tr>
-      <tr><td><code>app/config.py</code></td><td>Where the viewer is (<code>127.0.0.1:8765</code>) and how long to wait (5 seconds)</td></tr>
-      <tr><td><code>tests/</code></td><td>Checks for the 6 cases in <code>tests/TEST_PLAN.md</code>, using a fake viewer</td></tr>
-      <tr><td><code>pyproject.toml</code></td><td>The list of libraries the project needs</td></tr>
+      <tr><td><code>app/main.py</code></td><td>The web server and its addresses</td></tr>
+      <tr><td><code>app/ui/index.html</code></td><td>The page</td></tr>
+      <tr><td><code>app/investigator.py</code></td><td>The agent loop, its instructions and the three tool descriptions</td></tr>
+      <tr><td><code>app/tools.py</code></td><td><code>get_run</code> and <code>get_event</code></td></tr>
+      <tr><td><code>app/schema.py</code></td><td>The shapes: a run's events, the report, the steps</td></tr>
+      <tr><td><code>app/adapters/openclaw.py</code></td><td>Reads runs from the trace viewer and translates them</td></tr>
+      <tr><td><code>app/models/</code></td><td>One adapter per model provider: OpenRouter, Claude</td></tr>
+      <tr><td><code>app/config.py</code></td><td>Settings: where the viewer is, which model, the limits</td></tr>
+      <tr><td><code>app/logs.py</code></td><td>Where the investigator log goes</td></tr>
+      <tr><td><code>tests/</code></td><td>99 automated checks for the cases in <code>tests/TEST_PLAN.md</code>, with a fake viewer and a fake model</td></tr>
+      <tr><td><code>docs/decisions/</code></td><td>Why things are the way they are, one file per decision</td></tr>
     </table>
   </div>
 
-  <h2><span class="n">7</span>What comes after the skeleton</h2>
+  <h2><span class="n">7</span>What comes next</h2>
   <ol>
-    <li><b>Data</b>: the two tools, plus a saved copy of one real run.</li>
-    <li><b>First investigation</b>: connect the agent loop and a model, give it a run ID, and get a report.</li>
-    <li><b>Visibility</b>: log what the investigator did, how long it took, and what it cost.</li>
-    <li><b>Evaluation</b>: test it on a run that worked, a run that failed, and a run with missing data. We write the expected answers first.</li>
+    <li><b>Visibility, the rest</b>: show tokens and cost on the page, not only in the log.</li>
+    <li><b>Evaluation</b>: test it on a run that worked, a run that failed, and a run with missing data, on all three cheap models. We write the expected answers first.</li>
   </ol>
 </main>
 </body>

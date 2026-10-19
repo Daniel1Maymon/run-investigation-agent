@@ -1,27 +1,8 @@
-# What we are building, and what a "skeleton" is
+# What we are building, and where it stands
 
-## 1. What a skeleton is
+*Updated October 19, 2026.*
 
-A skeleton is the **smallest version of the project that runs from start to end, but doesn't do the smart part yet.**
-
-Think of building a house. First you put up the frame: walls, doors, and pipes connected to the street. Nobody can live in it yet, but you can walk from the front door to the kitchen, and water comes out of the tap. Only then do you add the furniture.
-
-In our project:
-- **The frame** is a small web server that can fetch a run from your trace viewer and hand it back.
-- **The furniture** is the AI agent that reads the run and writes a diagnosis. That comes later.
-
-## 2. Why start with a skeleton
-
-When the AI part goes wrong later, we want to know it's the AI and not the plumbing.
-
-The skeleton answers the boring questions first:
-1. Can our code reach the trace viewer on the Hetzner server?
-2. What happens when the tunnel is closed?
-3. What happens when someone asks for a run that doesn't exist?
-
-If these work before the AI arrives, every later bug is easier to find.
-
-## 3. The finished product
+## 1. What it does
 
 You give it **one run ID**. It gives back **a short report**:
 - Did the task succeed, fail, or is there not enough evidence?
@@ -30,66 +11,96 @@ You give it **one run ID**. It gives back **a short report**:
 
 It only **reads**. It never changes anything on the server.
 
-## 4. All the pieces, and which ones the skeleton has
+## 2. How we got here: skeleton first
+
+A skeleton is the **smallest version of the project that runs from start to end, but doesn't do the smart part yet.**
+
+Think of building a house. First you put up the frame: walls, doors, and pipes connected to the street. Only then do you add the furniture.
+
+1. **The frame came first:** a small web server that fetches a run from the trace viewer. It answered the boring questions: can we reach the server, what happens when the tunnel is closed, what happens with a wrong run ID.
+2. **Then the furniture:** the AI agent that reads the run and writes the report. Because the frame was already tested, every bug since then has been in the new part, not the plumbing.
+
+Both are built now.
+
+## 3. All the pieces
 
 ```
-  You ── run ID ──►  ① Web server (FastAPI)           ✅ skeleton
+  You ── run ID ──►  ① Web server + page (FastAPI)       ✅ built
                           │
                           ▼
-                     ② Agent loop                      ⏳ later
+                     ② Agent loop                         ✅ built
                       │        ▲
                       ▼        │
-                     ③ LLM (the model that thinks)     ⏳ later
+                     ③ LLM, through OpenRouter            ✅ built
+                          │ asks for tools
+                          ▼
+                     ④ Tools: get_run, get_event,         ✅ built
+                              submit_report
                           │
                           ▼
-                     ④ Tools: get_run, get_event       ⏳ later
-                          │
-                          ▼
-                     ⑤ OpenClaw adapter                ✅ skeleton
+                     ⑤ OpenClaw adapter                   ✅ built
                           │  HTTP, through the `dash` tunnel
                           ▼
-                     Trace viewer on Hetzner           (already exists)
+                     Trace viewer on Hetzner              (already existed)
 
-                     ⑥ Report  ◄── written by the agent loop     ⏳ later
-                     ⑦ Investigator trace (a log of the agent itself) ⏳ later
+                     ⑥ Report  ◄── handed in by the model, checked by the loop   ✅ built
+                     ⑦ Investigator log (what the agent itself did)              ✅ built
 ```
 
-| # | Piece | What it does, in plain English | Status |
-|---|---|---|---|
-| ① | Web server | The front door. You send it a request, it sends back an answer. | ✅ skeleton |
-| ② | Agent loop | The manager. It asks the model "what next?", runs the tool the model picks, and repeats until there's a report or a limit is hit. | ⏳ later |
-| ③ | LLM | The brain. It decides what to look at and writes the diagnosis. | ⏳ later |
-| ④ | Tools | The only actions the brain may take: "show me the run" and "show me this one message in full". | ⏳ later |
-| ⑤ | OpenClaw adapter | The translator. The only file that knows where OpenClaw data lives and how to fetch it. | ✅ skeleton |
-| ⑥ | Report | The answer you read: outcome, evidence, suspected cause, next step. | ⏳ later |
-| ⑦ | Investigator trace | A log of what the investigator itself did, so we can check its work. | ⏳ later |
+| # | Piece | What it does, in plain English |
+|---|---|---|
+| ① | Web server + page | The front door. A page where you pick a run and press Investigate. |
+| ② | Agent loop | The manager. It asks the model "what next?", runs the tool the model picks, and repeats until there's a report or a limit is hit (12 model calls or 180 seconds). |
+| ③ | LLM | The brain. It decides what to look at and writes the diagnosis. Default: `deepseek/deepseek-v4.1-flash` through OpenRouter. |
+| ④ | Tools | The only actions the brain may take: "show me the run", "show me this one event in full", and "here is my report". |
+| ⑤ | OpenClaw adapter | The translator. The only file that knows where OpenClaw data lives and how to read it. |
+| ⑥ | Report | The answer you read: outcome, summary, findings with event IDs, suspected cause, next step. |
+| ⑦ | Investigator log | One line per step in the server's terminal: which tool, how long, tokens, cost. |
 
-## 5. What the skeleton can do today
+## 4. One investigation, step by step
 
-It has two addresses (endpoints):
+1. You press **Investigate** on a run. The page sends `POST /runs/<id>/investigate`.
+2. The server downloads the run from the trace viewer **once**.
+3. The agent loop sends the model its instructions and the three tools.
+4. The model asks for `get_run`: the list of everything that happened in the run, each as a short preview.
+5. It asks for `get_event` on the events that look important, to read them in full.
+6. When it has enough evidence, it calls `submit_report`.
+7. The loop checks the report: right shape, and every event it points at really exists. If something is wrong, the model is told what and tries again.
+8. The page shows the report and the list of steps the agent took.
 
-1. **`GET /health`**: "Are you up, and can you reach the trace viewer?"
-   - Tunnel open: `{"status": "ok", ...}`
-   - Tunnel closed: `{"status": "degraded", ...}`, plus a hint to run `dash`. It doesn't crash.
-2. **`GET /runs/<run id>`**: "Give me this run."
-   - The run exists: you get it back.
-   - The run doesn't exist: a "not found" answer (404).
-   - The tunnel is closed: "viewer unavailable" (503), with a hint to run `dash`.
+A real example (run `800dfeb3`, October 19): 8 model calls, 56 seconds, less than one cent.
+
+## 5. What you can ask the server
+
+| Address | What it answers |
+|---|---|
+| `GET /` | The page |
+| `GET /sessions` | The list of recent sessions and their runs (the page refreshes it by itself when new runs arrive) |
+| `GET /runs/<id>` | One run, as the viewer has it |
+| `POST /runs/<id>/investigate` | Runs an investigation and returns the report and the steps |
+| `GET /health` | "Are you up, and can you reach the viewer?" Tunnel closed → "degraded", plus a hint to run `dash` |
+| `GET /runs/<id>/overview`, `GET /runs/<id>/events/<n>` | For debugging: exactly what the `get_run` and `get_event` tools give the model |
+
+A wrong run ID gets "not found" (404). A closed tunnel gets "viewer unavailable" (503) with a hint to run `dash`.
 
 ## 6. The files
 
 | File | Job |
 |---|---|
-| `app/main.py` | The web server and its two endpoints |
-| `app/adapters/openclaw.py` | Fetches runs from the trace viewer |
-| `app/config.py` | Where the viewer is (`127.0.0.1:8765`) and how long to wait (5 seconds) |
-| `tests/` | Checks for the 6 cases in `tests/TEST_PLAN.md`, using a fake viewer |
-| `pyproject.toml` | The list of libraries the project needs |
+| `app/main.py` | The web server and its addresses |
+| `app/ui/index.html` | The page |
+| `app/investigator.py` | The agent loop, its instructions and the three tool descriptions |
+| `app/tools.py` | `get_run` and `get_event` |
+| `app/schema.py` | The shapes: a run's events, the report, the steps |
+| `app/adapters/openclaw.py` | Reads runs from the trace viewer and translates them |
+| `app/models/` | One adapter per model provider: OpenRouter, Claude |
+| `app/config.py` | Settings: where the viewer is, which model, the limits |
+| `app/logs.py` | Where the investigator log goes |
+| `tests/` | 99 automated checks for the cases in `tests/TEST_PLAN.md`, with a fake viewer and a fake model |
+| `docs/decisions/` | Why things are the way they are, one file per decision |
 
-## 7. What comes after the skeleton
+## 7. What comes next
 
-These are the steps from the design doc, in order:
-1. **Data**: the two tools, `get_run` and `get_event`, plus a saved copy of one real run.
-2. **First investigation**: connect the agent loop and a model, give it a run ID, and get a report.
-3. **Visibility**: log what the investigator did, how long it took, and what it cost.
-4. **Evaluation**: test it on a run that worked, a run that failed, and a run with missing data. We write the expected answers first.
+These are the remaining steps from the design doc:
+1. **Visibility, the rest:** show tokens and cost on the page, not only in the log.
+2. **Evaluation:** test it on a run that worked, a run that failed, and a run with missing data, on all three cheap models. We write the expected answers first.

@@ -8,19 +8,24 @@ Design: [`docs/investigation-agent-design.md`](docs/investigation-agent-design.m
 
 ## Status
 
-Skeleton. The API reads a run through the OpenClaw adapter; the agent loop,
-LLM and tools are next.
+Works end to end. Give it a run ID (or press Investigate on the page) and the
+model reads the run through three tools and hands in a checked report.
+Next: evaluation on runs with known answers. Plain-English overview:
+[`docs/what-we-are-building.md`](docs/what-we-are-building.md).
 
 ```
-FastAPI (app/main.py)
-  GET /health          is the API up, and can it reach the trace viewer?
-  GET /runs/{run_id}   one run, read through the adapter
-        │
-        ▼
-OpenClaw adapter (app/adapters/openclaw.py)
-        │ HTTP
-        ▼
-trace viewer  /api/run/<id>   (on the server, reached through the `dash` tunnel)
+page (app/ui/index.html)  ──►  FastAPI (app/main.py)
+                                 POST /runs/{id}/investigate
+                                      │
+                                      ▼
+                         agent loop (app/investigator.py)  ◄──►  model adapter (app/models/)
+                           │  tools: get_run, get_event,          OpenRouter by default
+                           │         submit_report
+                           ▼
+                OpenClaw adapter (app/adapters/openclaw.py)
+                           │ HTTP, fetched once per investigation
+                           ▼
+                trace viewer /api/run/<id>   (on the server, through the `dash` tunnel)
 ```
 
 ## Run it
@@ -29,8 +34,14 @@ trace viewer  /api/run/<id>   (on the server, reached through the `dash` tunnel)
 uv sync
 uv run pytest                           # no viewer needed
 dash                                    # in another terminal: viewer + tunnel
-uv run uvicorn app.main:app --reload    # http://127.0.0.1:8000/docs
+uv run --env-file .env uvicorn app.main:app --reload   # http://127.0.0.1:8000
 ```
 
-`VIEWER_URL` (default `http://127.0.0.1:8765`) and `VIEWER_TIMEOUT` (default
-`5` seconds) can be set as environment variables.
+`.env` holds `OPENROUTER_API_KEY` (gitignored); without it the API runs but
+can't investigate.
+
+Settings are environment variables, all with defaults: `VIEWER_URL`
+(`http://127.0.0.1:8765`), `VIEWER_TIMEOUT` (5 s), `MODEL_PROVIDER`
+(`openrouter`), `INVESTIGATOR_MODEL` (`deepseek/deepseek-v4.1-flash`),
+`INVESTIGATOR_MAX_STEPS` (12), `INVESTIGATOR_MAX_SECONDS` (180), `LOG_LEVEL`
+(`INFO`). See `app/config.py`.
