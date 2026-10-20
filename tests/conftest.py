@@ -13,7 +13,7 @@ from app.main import app, viewer_client
 from app.models.base import ModelReply, ToolCall
 
 # A real run (92145325, success, 6 events), saved redacted: real structure, no content.
-OK_RUN = json.loads(s=(Path(__file__).parent / "fixtures" / "run_92145325.json").read_text())
+OK_RUN = json.loads((Path(__file__).parent / "fixtures" / "run_92145325.json").read_text())
 
 RUN = {"run_id": "r1", "agent": "nunu", "status": "success",
        "detail": {"messages": [], "calls": [], "tools": [], "meta": {}}}
@@ -32,40 +32,40 @@ SESSIONS = {"rows": [
 def fake_viewer(request: httpx.Request) -> httpx.Response:
     path = request.url.path
     if path == "/api/version":
-        return httpx.Response(status_code=200, json={"v": 0})
+        return httpx.Response(200, json={"v": 0})
     if path == "/api/runs":
-        return httpx.Response(status_code=200, json=SESSIONS)
+        return httpx.Response(200, json=SESSIONS)
     if path == "/api/run/r1":
-        return httpx.Response(status_code=200, json=RUN)
+        return httpx.Response(200, json=RUN)
     if path == "/api/run/ok":
-        return httpx.Response(status_code=200, json=OK_RUN)
+        return httpx.Response(200, json=OK_RUN)
     if path == "/api/run/boom":
-        return httpx.Response(status_code=500, json={"error": "kaboom"})
+        return httpx.Response(500, json={"error": "kaboom"})
     if path.startswith("/api/run/"):
-        return httpx.Response(status_code=404, json={"error": "no such run"})
-    return httpx.Response(status_code=404, text="not found")
+        return httpx.Response(404, json={"error": "no such run"})
+    return httpx.Response(404, text="not found")
 
 
 def refused(request: httpx.Request) -> httpx.Response:
-    raise httpx.ConnectError(message="connection refused", request=request)
+    raise httpx.ConnectError("connection refused", request=request)
 
 
 @pytest.fixture
 def viewer():
-    with openclaw.make_client(transport=httpx.MockTransport(handler=fake_viewer)) as c:
+    with openclaw.make_client(transport=httpx.MockTransport(fake_viewer)) as c:
         yield c
 
 
 @pytest.fixture
 def dead_viewer():
-    with openclaw.make_client(transport=httpx.MockTransport(handler=refused)) as c:
+    with openclaw.make_client(transport=httpx.MockTransport(refused)) as c:
         yield c
 
 
 def _api(client):
     app.dependency_overrides[viewer_client] = lambda: client
     try:
-        yield TestClient(app=app)
+        yield TestClient(app)
     finally:
         app.dependency_overrides.clear()
 
@@ -102,7 +102,7 @@ class FakeModel:
         return reply
 
 
-_ids = itertools.count(start=1)
+_ids = itertools.count(1)
 
 def ask(name, text="", cut_off=False, **tool_input):
     """A model reply asking for one tool, optionally with some text."""

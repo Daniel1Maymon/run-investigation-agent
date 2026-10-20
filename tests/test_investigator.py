@@ -24,7 +24,7 @@ def test_case26_happy_path(viewer):
     asked, answered = model.histories[1][1], model.histories[1][2]
     result = answered.tool_results[0]
     assert result.call_id == asked.tool_calls[0].id and not result.is_error
-    assert len(json.loads(s=result.content)["events"]) == 6
+    assert len(json.loads(result.content)["events"]) == 6
 
 # Case 27
 
@@ -59,7 +59,7 @@ def test_case30_time_limit(viewer):
 
 def test_case31_unknown_run_costs_nothing(viewer):
     model = FakeModel(ask(name="get_run"))
-    with pytest.raises(expected_exception=openclaw.RunNotFound):
+    with pytest.raises(openclaw.RunNotFound):
         investigator.investigate(client=viewer, model=model, run_id="nope")
     assert model.histories == []
 
@@ -67,7 +67,7 @@ def test_case31_unknown_run_costs_nothing(viewer):
 
 def test_case32_viewer_down_at_the_start_stops_before_the_model(dead_viewer):
     model = FakeModel(ask(name="get_run"))
-    with pytest.raises(expected_exception=openclaw.ViewerUnavailable, match="dash"):
+    with pytest.raises(openclaw.ViewerUnavailable, match="dash"):
         investigator.investigate(client=dead_viewer, model=model, run_id="ok")
     assert model.histories == []            # no model call, no money spent
 
@@ -76,11 +76,11 @@ def test_case32_viewer_down_mid_run_no_longer_matters():
     answered = []
     def first_then_refuse(request):
         if answered:
-            raise httpx.ConnectError(message="connection refused", request=request)
+            raise httpx.ConnectError("connection refused", request=request)
         answered.append(1)
         return fake_viewer(request=request)
     model = FakeModel(ask(name="get_run"), ask(name="get_event", event_id=3), submit(report=REPORT))
-    with openclaw.make_client(transport=httpx.MockTransport(handler=first_then_refuse)) as client:
+    with openclaw.make_client(transport=httpx.MockTransport(first_then_refuse)) as client:
         inv = investigator.investigate(client=client, model=model, run_id="ok")
     assert inv.status == "done"
 
@@ -94,7 +94,7 @@ def test_case51_one_investigation_fetches_the_run_once():
     model = FakeModel(ask(name="get_run"), ask(name="get_event", event_id=1),
                       ask(name="get_event", event_id=3), ask(name="get_event", event_id=3, start=10),
                       submit(report=REPORT))
-    with openclaw.make_client(transport=httpx.MockTransport(handler=counting)) as client:
+    with openclaw.make_client(transport=httpx.MockTransport(counting)) as client:
         inv = investigator.investigate(client=client, model=model, run_id="ok")
     assert inv.status == "done" and len(inv.steps) == 5
     assert requests == ["/api/run/ok"]
@@ -106,8 +106,8 @@ def test_case51_tool_answers_are_unchanged(viewer):
     investigator.investigate(client=viewer, model=model, run_id="ok")
     answers = [r.content for m in model.histories[-1] for r in m.tool_results]
     raw = openclaw.fetch_run(client=viewer, run_id="ok")
-    assert answers == [json.dumps(obj=tools.get_run(raw=raw), ensure_ascii=False),
-                       json.dumps(obj=tools.get_event(raw=raw, event_id=3), ensure_ascii=False)]
+    assert answers == [json.dumps(tools.get_run(raw=raw), ensure_ascii=False),
+                       json.dumps(tools.get_event(raw=raw, event_id=3), ensure_ascii=False)]
 
 # ---- Review fixes: cases 36–39 ----
 
@@ -164,7 +164,7 @@ def test_case39_model_fails_mid_run_keeps_the_steps(viewer):
 
 def _answers(model, call):
     """The tool results the model received on call number `call` (1-based)."""
-    return [json.loads(s=r.content) if not r.is_error else r
+    return [json.loads(r.content) if not r.is_error else r
             for r in model.histories[call - 1][-1].tool_results]
 
 # Case 40
@@ -184,7 +184,7 @@ def test_case41_several_tool_calls_answered_in_one_message(viewer):
     inv = investigator.investigate(client=viewer, model=model, run_id="ok")
     results = model.histories[1][2].tool_results
     assert [r.call_id for r in results] == [c.id for c in reply.tool_calls]
-    assert [json.loads(s=r.content)["id"] for r in results] == [3, 5]
+    assert [json.loads(r.content)["id"] for r in results] == [3, 5]
     assert inv.status == "done"
 
 # Case 42
@@ -244,7 +244,7 @@ def test_case45_whole_conversation_sent_every_time(viewer):
 def test_case52_tool_schema_comes_from_report():
     spec, = [t for t in investigator.TOOLS if t.name == "submit_report"]
     schema = spec.parameters
-    assert "$ref" not in json.dumps(obj=schema) and "$defs" not in schema    # Finding inline
+    assert "$ref" not in json.dumps(schema) and "$defs" not in schema    # Finding inline
     assert set(schema["properties"]) == set(Report.model_fields)
     assert schema["required"] == ["outcome", "summary", "findings", "next_step"]
     assert schema["properties"]["outcome"]["enum"] == ["success", "failure", "insufficient_evidence"]
@@ -291,7 +291,7 @@ def test_case54_invalid_report_is_a_tool_error(viewer):
 # Case 55
 
 def test_case55_text_reply_is_not_a_report(viewer):
-    model = FakeModel(say(text=json.dumps(obj=REPORT)), submit(report=REPORT))
+    model = FakeModel(say(text=json.dumps(REPORT)), submit(report=REPORT))
     inv = investigator.investigate(client=viewer, model=model, run_id="ok")
     assert "submit_report" in model.histories[1][-1].text
     assert inv.status == "done" and inv.model_calls == 2

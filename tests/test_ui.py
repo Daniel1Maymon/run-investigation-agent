@@ -1,7 +1,7 @@
 """TEST_PLAN.md cases 7, 34 and 59. Cases 8–11 and 35 run in the browser and are verified live."""
 
 def test_case7_root_serves_the_page(api):
-    r = api.get(url="/")
+    r = api.get("/")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/html")
     assert 'id="run-id"' in r.text

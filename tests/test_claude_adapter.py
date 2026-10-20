@@ -82,15 +82,15 @@ def test_case37_max_tokens_means_cut_off():
     assert claude.from_claude(response=response(stop_reason="end_turn")).cut_off is False
 
 def test_case25_no_key_is_not_configured(monkeypatch):
-    monkeypatch.delenv(name="ANTHROPIC_API_KEY", raising=False)
-    with pytest.raises(expected_exception=ModelNotConfigured, match="ANTHROPIC_API_KEY"):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(ModelNotConfigured, match="ANTHROPIC_API_KEY"):
         claude.ClaudeModel(name="claude-x")
 
 def test_case25_api_error_becomes_model_error():
     def create(**kw):
-        raise anthropic.APIConnectionError(request=httpx.Request(method="POST", url="https://api"))
+        raise anthropic.APIConnectionError(request=httpx.Request("POST", "https://api"))
     fake = SimpleNamespace(messages=SimpleNamespace(create=create))
-    with pytest.raises(expected_exception=ModelError, match="model call failed"):
+    with pytest.raises(ModelError, match="model call failed"):
         claude.ClaudeModel(name="claude-x", client=fake).next(instructions="", tools=[], history=HISTORY, timeout=180)
 
 

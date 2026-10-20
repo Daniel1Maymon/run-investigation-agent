@@ -10,7 +10,7 @@ import httpx
 from app.models.base import (Message, ModelError, ModelNotConfigured, ModelReply,
                              ToolCall, ToolSpec)
 
-log = logging.getLogger(name=__name__)
+log = logging.getLogger(__name__)
 
 URL = "https://openrouter.ai/api/v1/chat/completions"
 RETRIES = 2
@@ -22,7 +22,7 @@ class OpenRouterModel:
     def __init__(self, name: str, client: httpx.Client | None = None,
                  max_tokens: int = 4096, sleep=time.sleep):
         # `client` and `sleep` let tests pass a fake transport and skip the waits.
-        key = os.environ.get(key="OPENROUTER_API_KEY")
+        key = os.environ.get("OPENROUTER_API_KEY")
         if not key:
             raise ModelNotConfigured(
                 "no OPENROUTER_API_KEY: put it in .env and start the server with "
@@ -43,7 +43,7 @@ class OpenRouterModel:
         for attempt in range(RETRIES + 1):
             last = attempt == RETRIES
             try:
-                response = self.client.post(url=URL, json=body, headers=self.headers,
+                response = self.client.post(URL, json=body, headers=self.headers,
                                             timeout=per_try)
             except httpx.TransportError as ex:          # timeouts included
                 if last:
@@ -84,7 +84,7 @@ def to_openrouter_messages(m: Message) -> list[dict]:
         msg = {"role": "assistant", "content": m.text or None}
         if m.tool_calls:
             msg["tool_calls"] = [{"id": c.id, "type": "function", "function": {
-                "name": c.name, "arguments": json.dumps(obj=c.input)}} for c in m.tool_calls]
+                "name": c.name, "arguments": json.dumps(c.input)}} for c in m.tool_calls]
         elif not m.text:
             msg["content"] = "(empty)"      # some providers reject an empty message
         out.append(msg)
@@ -111,7 +111,7 @@ def _arguments(raw: str | None) -> dict:
     # Arguments arrive as a JSON string. Broken ones become {}: the loop then tells
     # the model what input is missing, instead of crashing (case 46).
     try:
-        parsed = json.loads(s=raw or "{}")
+        parsed = json.loads(raw or "{}")
     except json.JSONDecodeError:
         return {}
     return parsed if isinstance(parsed, dict) else {}

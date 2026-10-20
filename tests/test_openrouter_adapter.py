@@ -19,15 +19,15 @@ def _reply(content="", tool_calls=None, finish_reason="stop"):
 def _model(monkeypatch, *responses):
     """A model whose HTTP answers come from `responses`, in order. Each is a
     (status, json) pair or an exception to raise. Returns (model, sent requests)."""
-    monkeypatch.setenv(name="OPENROUTER_API_KEY", value="sk-test")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
     sent, queue = [], list(responses)
     def handler(request):
         sent.append(request)
         r = queue.pop(0)
         if isinstance(r, Exception):
             raise r
-        return httpx.Response(status_code=r[0], json=r[1])
-    client = httpx.Client(transport=httpx.MockTransport(handler=handler))
+        return httpx.Response(r[0], json=r[1])
+    client = httpx.Client(transport=httpx.MockTransport(handler))
     return openrouter.OpenRouterModel(name="vendor/m", client=client, sleep=lambda s: None), sent
 
 
@@ -78,7 +78,7 @@ def test_case46_next_sends_the_translated_request(monkeypatch):
     model, sent = _model(monkeypatch, (200, _reply(content="{}")))
     reply = model.next(instructions="be careful", tools=[TOOL], history=HISTORY, timeout=180)
     assert reply.text == "{}" and reply.tool_calls == []
-    body = json.loads(s=sent[0].content)
+    body = json.loads(sent[0].content)
     assert sent[0].headers["Authorization"] == "Bearer sk-test"
     assert body["model"] == "vendor/m"
     assert body["messages"][0] == {"role": "system", "content": "be careful"}
@@ -90,8 +90,8 @@ def test_case46_next_sends_the_translated_request(monkeypatch):
 # Case 47
 
 def test_case47_no_key_is_not_configured(monkeypatch):
-    monkeypatch.delenv(name="OPENROUTER_API_KEY", raising=False)
-    with pytest.raises(expected_exception=ModelNotConfigured, match="OPENROUTER_API_KEY"):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    with pytest.raises(ModelNotConfigured, match="OPENROUTER_API_KEY"):
         openrouter.OpenRouterModel(name="vendor/m")
 
 
@@ -103,28 +103,28 @@ def test_case47_rate_limit_is_retried(monkeypatch):
 
 def test_case47_gives_up_after_two_retries(monkeypatch):
     model, sent = _model(monkeypatch, *[(503, {"error": "down"})] * 3)
-    with pytest.raises(expected_exception=ModelError, match="503"):
+    with pytest.raises(ModelError, match="503"):
         model.next(instructions="", tools=[], history=HISTORY, timeout=180)
     assert len(sent) == 3
 
 
 def test_case47_bad_key_is_not_retried(monkeypatch):
     model, sent = _model(monkeypatch, (401, {"error": "bad key"}))
-    with pytest.raises(expected_exception=ModelError, match="401"):
+    with pytest.raises(ModelError, match="401"):
         model.next(instructions="", tools=[], history=HISTORY, timeout=180)
     assert len(sent) == 1
 
 
 def test_case47_error_inside_a_200(monkeypatch):
     model, _ = _model(monkeypatch, (200, {"error": {"code": 502, "message": "provider died"}}))
-    with pytest.raises(expected_exception=ModelError, match="provider died"):
+    with pytest.raises(ModelError, match="provider died"):
         model.next(instructions="", tools=[], history=HISTORY, timeout=180)
 
 
 def test_case47_timeout_is_retried_then_fails(monkeypatch):
-    timeout = httpx.ReadTimeout(message="timed out")
+    timeout = httpx.ReadTimeout("timed out")
     model, sent = _model(monkeypatch, timeout, timeout, timeout)
-    with pytest.raises(expected_exception=ModelError, match="model call failed"):
+    with pytest.raises(ModelError, match="model call failed"):
         model.next(instructions="", tools=[], history=HISTORY, timeout=180)
     assert len(sent) == 3
 
@@ -146,7 +146,7 @@ def test_case49_usage_cost_and_thinking(monkeypatch):
     reply = model.next(instructions="", tools=[], history=HISTORY, timeout=180)
     assert (reply.in_tokens, reply.out_tokens, reply.cost) == (38, 34, 2.3e-05)
     assert reply.thinking == "91 = 7 × 13"
-    assert json.loads(s=sent[0].content)["usage"] == {"include": True}
+    assert json.loads(sent[0].content)["usage"] == {"include": True}
 
 
 def test_case49_no_usage_still_works():
@@ -158,7 +158,7 @@ def test_case49_no_usage_still_works():
 
 def test_case50_retry_is_logged(monkeypatch, caplog):
     import logging
-    caplog.set_level(level=logging.INFO, logger="app")
+    caplog.set_level(logging.INFO, logger="app")
     model, _ = _model(monkeypatch, (429, {"error": "slow down"}), (200, _reply(content="{}")))
     model.next(instructions="", tools=[], history=HISTORY, timeout=180)
     assert "retry 1 after HTTP 429" in caplog.text

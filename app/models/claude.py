@@ -14,7 +14,7 @@ class ClaudeModel:
                  max_tokens: int = 4096):
         # `client` lets tests pass a fake instead of the real API.
         if client is None:
-            if not os.environ.get(key="ANTHROPIC_API_KEY"):
+            if not os.environ.get("ANTHROPIC_API_KEY"):
                 raise ModelNotConfigured(
                     "no ANTHROPIC_API_KEY: put it in .env and start the server with "
                     "`uv run --env-file .env uvicorn app.main:app --reload`")

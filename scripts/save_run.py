@@ -35,7 +35,7 @@ def main(run_id: str, redacted: bool) -> None:
     else:
         out = ROOT / "data" / "runs" / f"{run_id}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(data=json.dumps(obj=run, ensure_ascii=False, indent=1))
+    out.write_text(json.dumps(run, ensure_ascii=False, indent=1))
     print(f"saved {out.relative_to(ROOT)}")
 
 if __name__ == "__main__":

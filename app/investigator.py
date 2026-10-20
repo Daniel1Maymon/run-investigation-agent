@@ -20,7 +20,7 @@ from app.models.base import (Message, Model, ModelError, ModelReply, ToolCall, T
                              ToolSpec)
 from app.schema import Investigation, Report, Step
 
-log = logging.getLogger(name=__name__)
+log = logging.getLogger(__name__)
 
 INSTRUCTIONS = """You investigate one run of another AI agent (an OpenClaw run) and
 report whether its task was completed, what went wrong, and what to check next.
@@ -208,7 +208,7 @@ class _Investigation:
             self.steps.append(Step(tool=call.name, input=call.input, ok=False, note=str(ex)))
             self.say.info("tool %s  error: %s", _call(call=call), ex)
             return ToolResult(call_id=call.id, content=str(ex), is_error=True)
-        text = json.dumps(obj=out, ensure_ascii=False)
+        text = json.dumps(out, ensure_ascii=False)
         self.steps.append(Step(tool=call.name, input=call.input, result_chars=len(text)))
         self.say.info("tool %s  ok  %.1fs  %s chars", _call(call=call),
                       time.monotonic() - began, f"{len(text):,}")
@@ -253,7 +253,7 @@ class _Investigation:
         # failed investigation returns the steps it got through.
         inv = Investigation(run_id=self.run_id, model=self.model.name, status=status,
                             reason=reason, report=report, model_calls=self.calls,
-                            seconds=round(number=self.clock() - self.started, ndigits=1), steps=self.steps)
+                            seconds=round(self.clock() - self.started, 1), steps=self.steps)
         self.say.done(status=status, reason=reason, calls=self.calls, seconds=inv.seconds,
                       replies=self.replies)
         return inv
@@ -344,7 +344,7 @@ def _check_report(data: dict, n_events: int) -> tuple[Report | None, str | None]
         return None, ("Your report is empty (its JSON may have been broken, "
                       "so nothing could be read).")
     try:
-        report = Report.model_validate(obj=data)
+        report = Report.model_validate(data)
     except ValidationError as ex:
         why = "; ".join(f"{'.'.join(map(str, e['loc'])) or 'json'}: {e['msg']}"
                         for e in ex.errors(include_url=False))

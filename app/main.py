@@ -30,66 +30,66 @@ def model_client() -> Model:
 
 # One place that turns the adapter's errors into HTTP answers,
 # instead of the same try/except in every endpoint.
-@app.exception_handler(exc_class_or_status_code=openclaw.RunNotFound)
-@app.exception_handler(exc_class_or_status_code=openclaw.EventNotFound)
+@app.exception_handler(openclaw.RunNotFound)
+@app.exception_handler(openclaw.EventNotFound)
 def _not_found(request: Request, ex: Exception) -> JSONResponse:
-    return JSONResponse(content={"detail": str(ex)}, status_code=404)
+    return JSONResponse({"detail": str(ex)}, status_code=404)
 
 
-@app.exception_handler(exc_class_or_status_code=openclaw.ViewerUnavailable)
-@app.exception_handler(exc_class_or_status_code=ModelNotConfigured)
+@app.exception_handler(openclaw.ViewerUnavailable)
+@app.exception_handler(ModelNotConfigured)
 def _unavailable(request: Request, ex: Exception) -> JSONResponse:
-    return JSONResponse(content={"detail": str(ex)}, status_code=503)
+    return JSONResponse({"detail": str(ex)}, status_code=503)
 
 
 # A failed model call is not an HTTP error: the investigator returns it as
 # status "error" with the steps done so far (TEST_PLAN case 39).
 
 
-@app.get(path="/", include_in_schema=False)
+@app.get("/", include_in_schema=False)
 def ui() -> FileResponse:
     # The whole UI is one page; it calls /runs/{run_id} itself. See docs/decisions/0002.
-    return FileResponse(path=UI_PAGE, media_type="text/html")
+    return FileResponse(UI_PAGE, media_type="text/html")
 
 
-@app.get(path="/health")
-def health(client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
+@app.get("/health")
+def health(client: httpx.Client = Depends(viewer_client)) -> dict:
     viewer = openclaw.viewer_status(client=client)
     return {"status": "ok" if viewer["reachable"] else "degraded", "viewer": viewer}
 
 
-@app.get(path="/runs/{run_id}")
-def get_run(run_id: str, client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
+@app.get("/runs/{run_id}")
+def get_run(run_id: str, client: httpx.Client = Depends(viewer_client)) -> dict:
     return openclaw.fetch_run(client=client, run_id=run_id)
 
 
-@app.get(path="/runs/{run_id}/overview")
-def run_overview(run_id: str, client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
+@app.get("/runs/{run_id}/overview")
+def run_overview(run_id: str, client: httpx.Client = Depends(viewer_client)) -> dict:
     # Exactly what the investigator's get_run tool returns.
     return tools.get_run(raw=openclaw.fetch_run(client=client, run_id=run_id))
 
 
-@app.get(path="/runs/{run_id}/events/{event_id}")
+@app.get("/runs/{run_id}/events/{event_id}")
 def run_event(run_id: str, event_id: int, start: int = 0,
-              client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
+              client: httpx.Client = Depends(viewer_client)) -> dict:
     # Exactly what the investigator's get_event tool returns.
     return tools.get_event(raw=openclaw.fetch_run(client=client, run_id=run_id),
                            event_id=event_id, start=start)
 
 
-@app.post(path="/runs/{run_id}/investigate")
-def investigate_run(run_id: str, client: httpx.Client = Depends(dependency=viewer_client), model: Model = Depends(dependency=model_client)) -> dict:
+@app.post("/runs/{run_id}/investigate")
+def investigate_run(run_id: str, client: httpx.Client = Depends(viewer_client), model: Model = Depends(model_client)) -> dict:
     # POST, not GET: it does work (model calls cost money and take time).
     return investigator.investigate(client=client, model=model, run_id=run_id).model_dump()
 
 
-@app.get(path="/sessions")
-def list_sessions(client: httpx.Client = Depends(dependency=viewer_client)) -> list[dict]:
+@app.get("/sessions")
+def list_sessions(client: httpx.Client = Depends(viewer_client)) -> list[dict]:
     # An empty list is a valid answer, so there is no 404 here.
     return openclaw.list_sessions(client=client)
 
 
-@app.get(path="/sessions/version")
-def sessions_version(client: httpx.Client = Depends(dependency=viewer_client)) -> dict:
+@app.get("/sessions/version")
+def sessions_version(client: httpx.Client = Depends(viewer_client)) -> dict:
     # The page asks this every few seconds and re-fetches /sessions only when it changes.
     return {"v": openclaw.data_version(client=client)}

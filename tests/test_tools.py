@@ -11,8 +11,8 @@ from app import tools
 from app.adapters import openclaw
 
 FIXTURES = Path(__file__).parent / "fixtures"
-OK_RUN = json.loads(s=(FIXTURES / "run_92145325.json").read_text())
-FAILED_RUN = json.loads(s=(FIXTURES / "run_51bb2e1a.json").read_text())
+OK_RUN = json.loads((FIXTURES / "run_92145325.json").read_text())
+FAILED_RUN = json.loads((FIXTURES / "run_51bb2e1a.json").read_text())
 
 def kinds(overview):
     return [e.kind for e in overview.events]
@@ -41,7 +41,7 @@ def test_case18_failed_run_becomes_events():
 
 # Case 19
 
-@pytest.mark.parametrize(argnames="raw", argvalues=[OK_RUN, FAILED_RUN], ids=["ok", "failed"])
+@pytest.mark.parametrize("raw", [OK_RUN, FAILED_RUN], ids=["ok", "failed"])
 def test_case19_previews_are_short_and_say_so(raw):
     for e in openclaw.to_overview(raw=raw).events:
         assert len(e.preview) <= openclaw.PREVIEW_CHARS
@@ -57,9 +57,9 @@ def test_case20_long_event_comes_in_pages():
     assert p1.source_ref == "message 2, block 0" and p1.tool == "family_search"
 
 def test_case20_unknown_event_names_the_valid_range():
-    with pytest.raises(expected_exception=openclaw.EventNotFound, match="0–5"):
+    with pytest.raises(openclaw.EventNotFound, match="0–5"):
         openclaw.event_detail(raw=OK_RUN, event_id=6)
-    with pytest.raises(expected_exception=openclaw.EventNotFound):
+    with pytest.raises(openclaw.EventNotFound):
         openclaw.event_detail(raw=OK_RUN, event_id=-1)
 
 # Case 21
@@ -71,7 +71,7 @@ def test_case21_deleted_log_file_is_said_out_loud():
     assert o.events == []
     assert o.missing == ["run detail unavailable: trajectory file missing: /x/y.jsonl"]
     assert o.agent == "nunu" and o.recorded_status == "success"
-    with pytest.raises(expected_exception=openclaw.EventNotFound, match="none"):
+    with pytest.raises(openclaw.EventNotFound, match="none"):
         openclaw.event_detail(raw=raw, event_id=0)
 
 # Case 22
@@ -92,4 +92,4 @@ def test_case22_prior_context_and_dropped_content_are_marked():
 def test_tools_return_plain_json(viewer):
     o = tools.get_run(raw=openclaw.fetch_run(client=viewer, run_id="r1"))
     assert o["run_id"] == "r1" and o["events"] == []
-    json.dumps(obj=o)  # what the model will receive must serialise
+    json.dumps(o)  # what the model will receive must serialise

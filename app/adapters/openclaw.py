@@ -38,7 +38,7 @@ def _unavailable(detail: str) -> ViewerUnavailable:
 def fetch_run(client: httpx.Client, run_id: str) -> dict:
     """The run's index row plus its full detail, exactly as the viewer returns it."""
     try:
-        r = client.get(url=f"/api/run/{run_id}")
+        r = client.get(f"/api/run/{run_id}")
     except httpx.HTTPError as ex:
         raise _unavailable(detail=f"could not be reached ({type(ex).__name__})") from ex
     if r.status_code == 404:
@@ -52,7 +52,7 @@ def viewer_status(client: httpx.Client) -> dict:
     """Whether the viewer answers. Never raises: /health reports, it doesn't crash."""
     status = {"url": config.VIEWER_URL, "reachable": False}
     try:
-        r = client.get(url="/api/version")
+        r = client.get("/api/version")
     except httpx.HTTPError as ex:
         status["error"] = f"could not be reached ({type(ex).__name__})"
         return status
@@ -65,7 +65,7 @@ def viewer_status(client: httpx.Client) -> dict:
 def data_version(client: httpx.Client) -> int:
     """The viewer's data version: it changes when the viewer indexes new runs. See docs/decisions/0010."""
     try:
-        r = client.get(url="/api/version")
+        r = client.get("/api/version")
     except httpx.HTTPError as ex:
         raise _unavailable(detail=f"could not be reached ({type(ex).__name__})") from ex
     if r.status_code != 200:
@@ -75,7 +75,7 @@ def data_version(client: httpx.Client) -> int:
 def list_sessions(client: httpx.Client, limit: int = 200) -> list[dict]:
     """The newest sessions, slimmed to what the session list shows. See docs/decisions/0003."""
     try:
-        r = client.get(url="/api/runs", params={"limit": limit})
+        r = client.get("/api/runs", params={"limit": limit})
     except httpx.HTTPError as ex:
         raise _unavailable(detail=f"could not be reached ({type(ex).__name__})") from ex
     if r.status_code != 200:
@@ -147,7 +147,7 @@ def _events(detail: dict) -> list[dict]:
     out = []
     for m in detail.get("messages") or []:
         role = m.get("role")
-        for bi, b in enumerate(iterable=m.get("blocks") or []):
+        for bi, b in enumerate(m.get("blocks") or []):
             kind, tool, content = _classify(role=role, m=m, b=b)
             out.append({
                 "id": len(out), "kind": kind, "tool": tool, "content": content,
