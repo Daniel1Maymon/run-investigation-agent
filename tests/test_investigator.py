@@ -315,3 +315,11 @@ def test_case69_stopped_investigation_returns_what_it_spent(viewer):
     model = FakeModel(ask(name="get_run").model_copy(update={"cost": 0.001}))
     inv = investigator.investigate(client=viewer, model=model, run_id="ok")
     assert inv.status == "stopped" and inv.cost == pytest.approx(0.001 * config.MAX_STEPS)
+
+# Case 81
+
+def test_case81_told_to_leave_the_cause_empty_on_success():
+    spec, = [t for t in investigator.TOOLS if t.name == "submit_report"]
+    told = spec.parameters["properties"]["suspected_cause"]["description"]
+    assert "Null if the task succeeded" in told and "findings" in told
+    assert "succeeded, leave suspected_cause null" in investigator.INSTRUCTIONS

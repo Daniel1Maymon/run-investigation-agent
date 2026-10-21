@@ -33,6 +33,7 @@ How to work:
   what they asked for, and a tool error does not prove the task failed.
 - Events with prior=true are earlier context in the session, not this run's work.
 - If content is missing or not_recorded, say so instead of guessing.
+- If the task succeeded, leave suspected_cause null. Note any harmless oddity as a finding.
 
 When you have enough evidence, hand in your report by calling submit_report. That
 is the only way to finish: a report written as plain text is not accepted."""

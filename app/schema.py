@@ -70,7 +70,9 @@ class Report(BaseModel):
     summary: str = Field(description="1-3 sentences.")
     findings: list[Finding]
     suspected_cause: str | None = Field(
-        default=None, description="The likely cause of the problem, or null if none.")
+        default=None,
+        description="Why the task failed or went wrong. Null if the task succeeded: "
+                    "a harmless oddity goes in the findings, not here.")
     next_step: str = Field(description="What a developer should check or do next.")
 
 class Step(BaseModel):

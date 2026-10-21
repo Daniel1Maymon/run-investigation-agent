@@ -1050,3 +1050,39 @@ grouped. Each new case tests one of those groups. See decision 0012.
   90 each: qwen 81, glm 80, deepseek 75. "cited" passed 90/90 for every model,
   so on these cases it tells nothing apart. Running the page with 10 cases is
   still to check.
+
+## Step 5: the first fix found by the eval
+
+The first full eval run (case 80) showed deepseek always fills in the cause,
+even on runs where nothing went wrong ("None identified", "NULL", or a note
+about a harmless oddity). A program reading the report then sees a cause where
+there is none. The fix is in what the model is told; the eval says whether it
+worked. See decision 0013.
+
+### Case 81 — the model is told to leave the cause empty on a good run
+- **Input:** the `submit_report` tool schema and the investigator's instructions.
+- **Expected:** the `suspected_cause` description says it must be null when the
+  task succeeded, and that harmless oddities belong in the findings. The
+  instructions say the same in one line.
+- **Failure modes:** only one of the two says it, so a model that reads only the
+  schema (or only the instructions) never sees it.
+- **Verified:** automated (`test_investigator.py`) for the wording. Whether
+  models follow it is case 82.
+
+### Case 82 — live: the eval before and after the fix
+- **Input:** all 10 cases × 3 models × 3 attempts, same as case 80, after case 81.
+- **Expected:** the cause score on the three good runs (`no-reply-sent`,
+  `no-reply-in-thinking`, `reminder-ok`) goes up, most of all for deepseek
+  (0/9 before). No other check gets worse by more than chance (1 attempt).
+- **Failure modes:** a model now leaves the cause empty on a *failed* run too.
+  The failure cases' cause scores show it.
+- **Verified live only**, because it needs the real models.
+- **Verified live:** 2026-10-21, `evals/results/2026-10-21-095819.md` against
+  `2026-10-21-091230.md`. **Mixed.** deepseek's cause on the good runs went from
+  0/9 to 6/9 (`no-reply-sent` and `reminder-ok` 0→3; `no-reply-in-thinking`
+  stays 0/3 because it still calls that run a failure). But qwen's outcome on
+  `email-no-tool` fell from 3/3 to 0/3: it now calls the run a success because
+  the agent "honestly said it has no email access". 3 more attempts gave the
+  same. The old code in a separate copy gave failure 3 times out of 4, so the
+  new wording caused it. glm's `no-reply-in-thinking` went 3/3 → 0/3 (not yet
+  checked whether this is the wording or chance). Not accepted yet.

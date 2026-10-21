@@ -41,4 +41,6 @@ All three were last brought up to date on 2026-10-19 (decisions 0001–0010).
     cited events, cause words); a page at `/eval` runs it
   - `0012-first-eval-cases-from-error-analysis.md` — 10 cases picked by
     reading the investigator's reports on 34 real runs; judge what the user
-    got, and an error message counts as evidence
+    got, and an empty run is a failure only if it stopped before doing anything
+  - `0013-empty-cause-on-good-runs.md` — the model is told, in the schema
+    and the instructions, to leave the cause empty when the task succeeded
