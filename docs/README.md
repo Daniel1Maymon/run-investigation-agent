@@ -36,3 +36,9 @@ All three were last brought up to date on 2026-10-19 (decisions 0001–0010).
   - `0010-session-list-polls-viewer-version.md` — the session list updates
     itself: the page checks the viewer's data version every 10 s and
     re-fetches the list only when it changed
+  - `0011-evaluation-frozen-copies-and-code-checks.md` — the eval grades real
+    models on frozen copies of real runs with 3 checks in code (outcome,
+    cited events, cause words); a page at `/eval` runs it
+  - `0012-first-eval-cases-from-error-analysis.md` — 10 cases picked by
+    reading the investigator's reports on 34 real runs; judge what the user
+    got, and an error message counts as evidence

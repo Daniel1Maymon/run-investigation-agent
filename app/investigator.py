@@ -253,7 +253,8 @@ class _Investigation:
         # failed investigation returns the steps it got through.
         inv = Investigation(run_id=self.run_id, model=self.model.name, status=status,
                             reason=reason, report=report, model_calls=self.calls,
-                            seconds=round(self.clock() - self.started, 1), steps=self.steps)
+                            seconds=round(self.clock() - self.started, 1),
+                            cost=_sum(values=[r.cost for r in self.replies]), steps=self.steps)
         self.say.done(status=status, reason=reason, calls=self.calls, seconds=inv.seconds,
                       replies=self.replies)
         return inv

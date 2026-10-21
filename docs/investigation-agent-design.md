@@ -2,7 +2,7 @@
 
 Version 0.2 · October 19, 2026 · Working direction, open to change
 
-**Status (October 19, 2026):** steps 1 and 2 are built and the first milestone (§8) is reached. Step 3 is partly built: the server log records every step, tokens and cost, but the page does not show tokens and cost yet. Step 4 (evaluation) is next. Sections marked *As built* describe the code today; the rest is the original design.
+**Status (October 21, 2026):** steps 1 and 2 are built and the first milestone (§8) is reached. Step 3 is partly built: the server log records every step, tokens and cost, but the page does not show tokens and cost yet. Step 4 (evaluation) is built (October 21, 2026): 10 cases from real runs, 3 checks in code, run from `/eval` or `evals/run_eval.py` (decisions 0011, 0012). Step 5 is next. Sections marked *As built* describe the code today; the rest is the original design.
 
 **The goal is to start building and learning. The investigation agent is our current direction, and it can change as we work. Complex agent systems rely on the same building blocks we are learning now; we will develop depth through the challenges we encounter.**
 
@@ -95,7 +95,8 @@ A tool error does not necessarily mean the task failed. A successful technical s
 1. **Data** *(built)*: Save a complete copy of one run and expose it through the two tools. Source files may be trimmed over time; the index alone is not a full-content archive.
 2. **First investigation** *(built; limits: 12 model calls, 180 s)*: Connect an agent loop and model, provide a run ID, and produce a report with evidence. Set step and time limits.
 3. **Visibility** *(partly built: the server log has every step, tokens and cost; the page doesn't show tokens and cost yet)*: Record the investigator's model and tool calls, errors, duration, token usage, and cost where available.
-4. **Evaluation** *(next)*: Test a successful run, a controlled failure, and a case with missing information. Write expected diagnoses beforehand and compare them with the output; do not give those diagnoses to the investigator.
+4. **Evaluation** *(built; 10 cases, decisions 0011 and 0012)*: Test a successful run, a controlled failure, and a case with missing information. Write expected diagnoses beforehand and compare them with the output; do not give those diagnoses to the investigator.
+   *As built:* each case is a frozen copy of a real run plus an expected answer written by hand (`evals/cases.json`). The checks are the outcome, the events cited and words in the cause; a good run must name no cause. The cases were picked by reading the investigator's reports on 34 real runs and grouping its mistakes. First full run (October 21, 2026, 3 models × 3 attempts): qwen 81/90 checks, glm 80, deepseek 75. deepseek always names a cause, even on good runs.
 5. **Expand when needed:** Add aggregate monitoring and further capabilities in response to problems encountered during development.
 
 If no real failure is available, create a controlled or synthetic test case and label it accordingly. Check whether the investigator identifies the problem, provides evidence, and avoids inventing failures in successful runs.

@@ -90,4 +90,5 @@ class Investigation(BaseModel):
     report: Report | None = None               # only when done
     model_calls: int
     seconds: float
+    cost: float | None = None                  # US dollars over every model call; None = a call didn't say
     steps: list[Step]

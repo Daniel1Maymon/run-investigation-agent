@@ -1,0 +1,125 @@
+[
+  {
+    "id": "email-no-tool",
+    "run_id": "3178d9f9-7ad7-4e16-b55a-a2165ce96aa4",
+    "note": "The user asked to check for an important email today. The agent has no email tool and said so (event 5). OpenClaw recorded it as success.",
+    "outcome": "failure",
+    "must_cite": [
+      5
+    ],
+    "cause_mentions": [
+      "email",
+      "mail",
+      "מייל"
+    ]
+  },
+  {
+    "id": "birthdays-declined",
+    "run_id": "268f28bd-bb8f-4e29-a512-52010c730789",
+    "note": "Asked to add a birthday. The agent replied that it is read-only and can't create events (event 2). OpenClaw recorded success.",
+    "outcome": "failure",
+    "must_cite": [
+      2
+    ],
+    "cause_mentions": [
+      "read-only",
+      "read only",
+      "write",
+      "קריאה"
+    ]
+  },
+  {
+    "id": "listening-list-fallback",
+    "run_id": "71fec4c3-9894-47c3-9b9a-3d3886cc6bfe",
+    "note": "Asked to add a Spotify link to the listening list. The add failed, list not found (event 26), so it made an ordinary task instead. OpenClaw recorded success.",
+    "outcome": "failure",
+    "must_cite": [
+      26
+    ],
+    "cause_mentions": [
+      "listening list",
+      "not found",
+      "renamed"
+    ]
+  },
+  {
+    "id": "no-reply-sent",
+    "run_id": "2519b42f-72e8-4cc4-b4c1-bdc15b77980d",
+    "note": "Reminder cron, before its start date, so the right move is to send nothing. The agent replied NO_REPLY (event 4). Twin of no-reply-in-thinking.",
+    "outcome": "success",
+    "must_cite": [
+      4
+    ],
+    "cause_mentions": []
+  },
+  {
+    "id": "no-reply-in-thinking",
+    "run_id": "81c35f0f-bb85-4adb-a35c-9d34cd22352d",
+    "note": "Same reminder cron, same right move: send nothing. The agent wrote NO_REPLY only in its thinking (event 5), so OpenClaw logged an error, but the user got exactly what they should.",
+    "outcome": "success",
+    "must_cite": [
+      5
+    ],
+    "cause_mentions": []
+  },
+  {
+    "id": "empty-recorded-success",
+    "run_id": "06f5df0e-60d7-4500-9eec-fd47d021e1cd",
+    "note": "0 events, the trajectory file is missing. Recorded success with no error. Nothing shows whether the task was done.",
+    "outcome": "insufficient_evidence",
+    "must_cite": [],
+    "cause_mentions": [
+      "trajectory",
+      "missing"
+    ]
+  },
+  {
+    "id": "empty-timed-out",
+    "run_id": "db0c7624-3fb4-4578-a130-249da024b80e",
+    "note": "0 events, the trajectory file is missing. Recorded error: run budget, request timed out after ~90s. It ran for a while, so it may have done things we can't see: can't tell.",
+    "outcome": "insufficient_evidence",
+    "must_cite": [],
+    "cause_mentions": [
+      "timed out",
+      "timeout",
+      "budget"
+    ]
+  },
+  {
+    "id": "empty-context-overflow",
+    "run_id": "2dc1eccb-1c5b-4c56-832c-045e14d5fb15",
+    "note": "0 events. Recorded error: context overflow, the prompt was too large before the model was called.",
+    "outcome": "failure",
+    "must_cite": [],
+    "cause_mentions": [
+      "overflow",
+      "too large",
+      "context"
+    ]
+  },
+  {
+    "id": "reminder-ok",
+    "run_id": "6b9e3319-ca29-484b-9c7b-dc228bb30efc",
+    "note": "Reminder cron asked for a word-for-word reminder. The agent replied with exactly that text (event 2). Nothing went wrong.",
+    "outcome": "success",
+    "must_cite": [
+      2
+    ],
+    "cause_mentions": []
+  },
+  {
+    "id": "idle-timeout",
+    "run_id": "51bb2e1a-00b8-4e77-805f-33ee7022bfe5",
+    "note": "Morning briefing cron. The data was fetched, then the model went silent, the reply is empty (event 6) and the run hit the 120s idle timeout.",
+    "outcome": "failure",
+    "must_cite": [
+      6
+    ],
+    "cause_mentions": [
+      "idle",
+      "timeout",
+      "stall",
+      "no response"
+    ]
+  }
+]

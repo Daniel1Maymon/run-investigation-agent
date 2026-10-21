@@ -296,3 +296,22 @@ def test_case55_text_reply_is_not_a_report(viewer):
     assert "submit_report" in model.histories[1][-1].text
     assert inv.status == "done" and inv.model_calls == 2
     assert [(s.tool, s.ok) for s in inv.steps] == [(None, False), ("submit_report", True)]
+
+# Case 69
+
+def test_case69_investigation_returns_its_cost(viewer):
+    model = FakeModel(ask(name="get_run").model_copy(update={"cost": 0.001}),
+                      submit(report=REPORT).model_copy(update={"cost": 0.002}))
+    inv = investigator.investigate(client=viewer, model=model, run_id="ok")
+    assert inv.cost == pytest.approx(0.003)
+
+
+def test_case69_unknown_cost_is_null(viewer):
+    model = FakeModel(ask(name="get_run").model_copy(update={"cost": 0.001}), submit(report=REPORT))
+    assert investigator.investigate(client=viewer, model=model, run_id="ok").cost is None
+
+
+def test_case69_stopped_investigation_returns_what_it_spent(viewer):
+    model = FakeModel(ask(name="get_run").model_copy(update={"cost": 0.001}))
+    inv = investigator.investigate(client=viewer, model=model, run_id="ok")
+    assert inv.status == "stopped" and inv.cost == pytest.approx(0.001 * config.MAX_STEPS)

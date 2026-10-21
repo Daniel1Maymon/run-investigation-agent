@@ -749,3 +749,304 @@ from the last answer, the page fetches `/sessions` again. New server pieces:
   - Viewer down during a check: nothing changes on screen, checks keep going,
     and the list updates once the viewer is back.
 - **Verified live:** not yet.
+
+## Step 4 (part 1): an evaluation with one case
+
+The tests above check that the loop works. They can't tell whether a real model
+reaches the *right* conclusion. The eval does that: it runs real models on a
+real run whose answer we know, and scores them.
+
+One case for now: run `3178d9f9-7ad7-4e16-b55a-a2165ce96aa4`. The user asked
+"check if I got an important email today"; the agent has no email tool and said
+so (event 5). OpenClaw recorded the run as `success`, so the right answer is
+`failure`. A model that just copies the recorded status gets it wrong.
+
+How it works:
+- `evals/snapshot.py` saves the viewer's answer for the run once, to
+  `data/eval-runs/<run_id>.json`. That folder is git-ignored: the run holds
+  personal content and the repo is public.
+- `evals/cases.json` holds the expected answer, written by hand before any code.
+- `evals/run_eval.py` runs each model 3 times on the case. A fake viewer
+  (`httpx.MockTransport`) serves the saved copy, so the eval never reaches
+  Hetzner. `investigate()` itself is unchanged.
+- `grade()` turns each report into 3 yes/no checks. The table goes to
+  `evals/results/<date>-<time>.md`, with scores only and no report text.
+- The logic lives in `app/evaluation.py`, so the terminal script and the page
+  (cases 70-74) run the same code.
+- The table also shows each model's average cost and time, because "which
+  model is good enough for the least money" is the question the eval answers.
+  The investigator already adds up the cost for its log line. Now it also
+  returns that total (case 69).
+
+The expected answer for the case:
+- `outcome`: `failure`
+- `must_cite`: `[5]`, the reply saying it has no email access
+- `cause_mentions`: `["email", "mail", "מייל"]`. Any one is enough, because
+  the run is in Hebrew and a model may answer in Hebrew.
+
+See docs/decisions/0011.
+
+### Case 61 — snapshot: save a run
+- **Input:** `snapshot.py <run_id>`; the viewer returns the run.
+- **Expected:** `data/eval-runs/<run_id>.json` holds exactly what
+  `openclaw.fetch_run` returned.
+- **Failure modes:**
+  - The file already exists → it is not overwritten, and the script says so.
+    The copy must stay frozen.
+  - The run doesn't exist → `RunNotFound` is reported and no file is written.
+  - The viewer is down → the `dash` hint, and no file is written.
+- **Verified:** mocked (`test_eval.py`), and live once for the real case.
+
+### Case 62 — replay: the investigator reads the saved copy
+- **Input:** a saved snapshot, served by the eval's fake viewer;
+  `investigate()` with a FakeModel that calls `get_run` and `get_event`, then
+  submits a report.
+- **Expected:** the tools get the same overview and events as from the live
+  viewer. No request leaves the machine.
+- **Failure modes:** the snapshot file is missing → a clear error that names
+  the file and says to run `snapshot.py`. No model call is made.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 63 — cases.json is checked when it loads
+- **Input:** `cases.json`.
+- **Expected:** each case has `run_id`, `outcome` (one of the three Report
+  outcomes), `must_cite` (a list of event ids) and `cause_mentions` (a list of
+  words, or empty when there is no problem).
+- **Failure modes:** a misspelled outcome, or a missing field → it fails to
+  load and names the case. A typo must never become a case that no model can
+  pass.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 64 — grade: a correct report
+- **Input:** a finished investigation whose report says `failure`, has 5 in
+  some finding's `evidence`, and mentions "Email" in `suspected_cause`.
+- **Expected:** all 3 checks pass. The word match ignores upper and lower case.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 65 — grade: each check fails on its own
+- **Input:** a report that is right except for one thing:
+  - `outcome` is `success`;
+  - event 5 appears in no finding (citing only 1 and 3, say);
+  - `suspected_cause` names none of the words;
+  - `suspected_cause` is null.
+- **Expected:** only that check fails; the other two still pass. Event 5 counts
+  whichever finding cites it, and citing extra events doesn't hurt.
+- **A case with no problem** (`cause_mentions` empty): the cause check passes
+  only when `suspected_cause` is null. Naming a cause for a run that went fine
+  is a wrong answer.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 66 — grade: the investigation didn't finish
+- **Input:** an investigation with status `stopped` (our limits) or `error`
+  (the model call failed), so it has no report.
+- **Expected:** all 3 checks fail, and the table shows the reason. It doesn't
+  crash, and it isn't skipped: not finishing is a result.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 67 — run_eval: the whole run, with fake models
+- **Input:** `run_eval` with 2 FakeModels and 3 attempts each, plus a viewer
+  that refuses every connection (to prove it's never used).
+- **Expected:**
+  - 6 investigations run, and the table has one row per model with scores like
+    `2/3`, plus average cost and average seconds.
+  - Average cost is `?` if any attempt's cost is unknown. It never averages
+    only the known ones, which would look cheaper than it was.
+  - The results file holds scores and reasons only, no summary or finding text
+    (that text quotes the run, and the repo is public).
+- **Failure modes:** one model fails every call → its row shows the failures,
+  and the other model still runs.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 68 — live: the real eval
+- **Input:** the snapshot saved (case 61), `OPENROUTER_API_KEY` set; run
+  `evals/run_eval.py` with deepseek-v4.1-flash, qwen3.7-flash and
+  glm-5.3-flash, 3 attempts each.
+- **Expected:**
+  - 9 investigations, and `evals/results/<date>-<time>.md` is written, with a real
+    dollar cost for each model (OpenRouter reports it).
+  - The tunnel can be closed the whole time.
+  - The scores are the finding, not a pass/fail of this case. We read the
+    reports of any failed checks, to see whether the model or the case is
+    wrong.
+- **Verified live:** not yet.
+
+### Case 69 — the investigation returns its total cost
+- **Input:** an investigation whose model replies report costs of 0.001 and
+  0.002.
+- **Expected:** the result's `cost` is 0.003, the same total the log's last
+  line shows. A stopped or failed investigation still returns what it spent.
+- **Failure modes:** any reply with no cost → `cost` is `null`, not a partial
+  sum (the same rule as the log, case 49).
+- **Verified:** mocked (`test_investigator.py`).
+
+## Step 4 (part 2): a page to run the eval
+
+A second page, `/eval`, next to the investigation page. You pick the models and
+the number of attempts, press Run, and watch the table fill in. The page asks
+the server for **one attempt at a time** (one investigation, graded) and keeps
+the tally itself. So the server keeps no state between requests, and the page
+shows progress without any extra mechanism. At most one attempt per model runs
+at once, so 3 models run side by side. When every attempt is back, the page
+asks the server to save the results file. See docs/decisions/0011.
+
+### Case 70 — the two pages link to each other
+- **Input:** `GET /eval` and `GET /`.
+- **Expected:** `/eval` serves the eval page (HTML). Each page has a link to
+  the other in its header.
+- **Verified:** automated (`test_ui.py`).
+
+### Case 71 — `GET /eval/cases`
+- **Input:** `GET /eval/cases`.
+- **Expected:** 200 with each case: `id`, `run_id`, the expected answer, a
+  `note` in plain words, and `snapshot: true/false` (is the saved copy there?).
+  It also returns the models the page offers (`config.EVAL_MODELS`) and the
+  default number of attempts.
+- **Failure modes:** a broken `cases.json` → 500 naming the problem (case 63).
+  It never shows an empty list as if there were no cases.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 72 — `POST /eval/cases/{case_id}/attempts`: one attempt
+- **Input:** `{"model": "<name>"}` for a case whose copy is saved.
+- **Expected:** 200 with the attempt: `model`, `status`, `reason`, the 3
+  checks, `cost`, `seconds`, `model_calls`, and the `report`, so the page can
+  show why a check failed. The viewer is never called.
+- **Failure modes:**
+  - An unknown case → 404.
+  - A model that isn't in `EVAL_MODELS` → 400. The page can't spend money on
+    a model nobody chose to compare.
+  - No saved copy → 409, with the `snapshot.py` command to run.
+  - No API key → 503 (as on the investigation page).
+  - A failed model call is not an HTTP error: it is an attempt with status
+    `error` (case 66).
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 73 — `POST /eval/results`: save the table
+- **Input:** the attempts the page collected.
+- **Expected:** `evals/results/<date>-<time>.md` is written with the table
+  (case 67's rules: scores, cost, time and reasons, no report text). The
+  answer gives the file's path.
+- **Failure modes:** an empty list → 400, so no file is written.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 74 — live: run the eval from the page
+- **Input:** server started with `.env`, `/eval` open in a browser, the copy
+  saved.
+- **Expected:**
+  - The case card shows the expected answer and "copy saved".
+  - Run with the 3 models × 3 attempts. Each model's row updates as its
+    attempts come back. The Run button stays disabled until the end.
+  - Each attempt shows ✓/✗ for its 3 checks, and a failed one can be opened to
+    read its report.
+  - The page then says where the results file was saved.
+- **Verified live:** replaced by case 78 before it was checked. The first
+  layout didn't scale (see part 3).
+
+## Step 4 (part 3): a page that works with many cases
+
+The first `/eval` page ran **every** saved case, with no way to choose. It also
+drew every case as a full card twice: once above the Run button, and once in
+the results. With 20 cases that becomes a long wall of cards. The new layout
+has four parts, and the page grows by one line per case:
+
+1. **Pick cases:** one row per case with a checkbox, plus "all". Click a row
+   to see its expected answer.
+2. **Pick models:** checkboxes, the number of attempts, the total count, and Run.
+3. **Results:** one grid, with cases down the side and models across the top.
+   A cell shows the checks passed (for example 9/9). A total row and a
+   cost/time row sit at the bottom. Click a cell to see its attempts and reports.
+4. **Past runs:** the saved results files, newest first. Click one to read it.
+
+The server already runs one attempt per request, so running only the chosen
+cases is a page-only change. Past runs need two small read-only endpoints.
+
+### Case 75 — the page has the pick steps
+- **Input:** `GET /eval`.
+- **Expected:** the page has the case list (`id="case-list"`), the grid
+  (`id="grid"`), and the past-runs list (`id="past"`). It asks for
+  `/eval/results`.
+- **Verified:** automated (`test_ui.py`). How it behaves is case 78.
+
+### Case 76 — `GET /eval/results`: the past runs
+- **Input:** `GET /eval/results`.
+- **Expected:** 200 with the saved results files, newest first, each with its
+  `name`. No results folder yet → an empty list, not an error.
+- **Failure modes:** other files in the folder (not `<date>-<time>.md`) are
+  not listed.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 77 — `GET /eval/results/{name}`: read one past run
+- **Input:** the name of a saved results file.
+- **Expected:** 200 with its text (scores only, case 67).
+- **Failure modes:**
+  - An unknown name → 404.
+  - A name that isn't `<date>-<time>.md`, such as `../cases.json` → 404. The
+    endpoint never reads a file outside the results folder.
+- **Verified:** mocked (`test_eval.py`).
+
+### Case 78 — live: pick, run and read on the new page
+- **Input:** server started with `.env`, `/eval` open in a browser, the copy
+  saved.
+- **Expected:**
+  - Each case is one row. "All" ticks every saved case. A case without a saved
+    copy can't be ticked, and its row says why.
+  - The count under Run changes with the picks (cases × models × attempts).
+    Nothing picked → Run is disabled.
+  - Run only the picked cases. The grid shows one row per picked case, and the
+    cells fill in as attempts come back.
+  - Click a cell → its attempts, with ✓/✗ for each check and the report.
+  - At the end, the page says where the results were saved, and the new file
+    appears at the top of Past runs. Clicking it shows the table.
+- **Verified live:** 2026-10-20 in Chrome, server on `.env`, tunnel closed.
+  Unticking "All" turned Run off ("Nothing to run"). With 1 case × 3 models × 1
+  attempt, the controls locked and the cells showed "0 of 1 done", then filled
+  in: deepseek 3/3, glm 2/3, qwen 1/3. qwen's cell opened to its attempt (✗
+  outcome: it said success, ✓ cited, ✗ cause) and its report. The page said
+  `evals/results/2026-10-20-152133.md`, which appeared first in Past runs and
+  opened to its table. Found and fixed during the check: the empty Results card
+  showed before any run (`.card`'s `display: grid` overrode `hidden`), and
+  "1 cases"
+
+### Case 79 — a past run is drawn as a table, not raw text
+- **Input:** click a date under Past runs.
+- **Expected:** each case in the file is a heading with its own table. The
+  table looks like the Results grid: short model names (the full name on
+  hover), with each score coloured green (all passed), amber (some) or red
+  (none). The `|---|` markup is never shown. The text is still written with
+  `textContent`, never as HTML.
+- **Failure modes:** a line the page doesn't recognise (such as "Didn't
+  finish:" and its list) is shown as plain text, never dropped.
+- **Verified live:** 2026-10-20 in Chrome, on `2026-10-20-152133.md`. It shows
+  the heading "Case email-no-tool" and a 3-row table with short model names.
+  glm's cause 0/1 and qwen's outcome and cause 0/1 are red, and the rest is
+  green. The "Didn't finish" lines weren't in that file, so plain-text lines
+  are not checked yet.
+
+## Step 4 (part 4): the first real set of cases
+
+The cases come from error analysis, not from guessing. The investigator ran on
+34 real runs, every report was read against its run, and the mistakes were
+grouped. Each new case tests one of those groups. See decision 0012.
+
+### Case 80 — live: 10 cases, all models, one results file
+- **Input:** the 9 new cases in `evals/cases.json`, with their copies saved by
+  `evals/snapshot.py`. All 10 cases × 3 models × 3 attempts, run from `/eval`.
+- **Expected:**
+  - `load_cases()` reads all 10 without an error, and every case can be ticked
+    (its copy is saved).
+  - All 90 attempts come back. The grid has 10 rows and a Total row.
+  - One results file is written with 10 case tables, and it opens under Past runs.
+- **Failure modes:**
+  - A typo in a new case → the page shows the `cases.json` error (case 63),
+    never a case no model can pass.
+  - A copy that fails to save (tunnel closed) → that case stays unticked.
+- **Not a test failure:** low scores. They are findings, and each one is read
+  to see whether the model or the expected answer is wrong (decision 0011).
+- **Verified live only**, because it needs the real models.
+- **Verified live:** 2026-10-21. All 10 copies saved through the tunnel, and
+  `load_cases()` read all 10. The run went through `evals/run_eval.py`, not the
+  page: Chrome suspended the tab before the first request, so nothing ran
+  there. All 90 attempts finished (`done`), and
+  `evals/results/2026-10-21-091230.md` has 10 case tables. Checks passed, of
+  90 each: qwen 81, glm 80, deepseek 75. "cited" passed 90/90 for every model,
+  so on these cases it tells nothing apart. Running the page with 10 cases is
+  still to check.

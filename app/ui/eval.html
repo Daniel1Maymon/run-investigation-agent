@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigator Eval</title>
+<style>
+  :root {
+    --bg: #f4f6f7; --surface: #ffffff; --fg: #17232a; --muted: #5d6c75;
+    --rule: #d6dde1; --accent: #0f6b7a; --ok: #1d7a46; --ok-soft: #e1f3e8;
+    --bad: #b3261e; --bad-soft: #fbe4e2; --warn-soft: #fff4d6; --warn: #8a5a00;
+    --mono: ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10181d; --surface: #172229; --fg: #e3eaee; --muted: #9aabb5;
+      --rule: #2a3a44; --accent: #4fc0cf; --ok: #5fd18f; --ok-soft: #173826;
+      --bad: #ff8a80; --bad-soft: #3d1c1a; --warn-soft: #3a2f12; --warn: #f0c35a;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }  /* .card's display: grid would otherwise win */
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.55 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 20px; }
+  h1 { font-size: 22px; margin: 0; }
+  .sub { color: var(--muted); margin: 4px 0 0; }
+  nav { font-size: 14px; margin-bottom: 8px; }
+  nav a { color: var(--accent); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 4px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 12px; min-width: 0; }
+  .msg { padding: 12px 14px; border-radius: 8px; }
+  .msg.error { background: var(--bad-soft); color: var(--bad); }
+  .msg.hint { background: var(--warn-soft); color: var(--warn); }
+  .msg.done { background: var(--ok-soft); color: var(--ok); }
+  .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pill { font-weight: 700; font-size: 13px; padding: 3px 10px; border-radius: 999px; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.bad { background: var(--bad-soft); color: var(--bad); }
+  .pill.unk { background: var(--warn-soft); color: var(--warn); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 16px; margin: 0; }
+  dt { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  code { font-family: var(--mono); font-size: .9em; overflow-wrap: anywhere; }
+  .muted { color: var(--muted); }
+  .controls { display: flex; gap: 12px 20px; flex-wrap: wrap; align-items: center; }
+  .controls label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+  input[type=number] { width: 64px; padding: 6px 8px; font: inherit; border: 1px solid var(--rule);
+    border-radius: 6px; background: var(--surface); color: var(--fg); }
+  button { padding: 10px 20px; font: inherit; font-weight: 600; border: 0; border-radius: 8px;
+    background: var(--accent); color: var(--surface); cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+  td.score.full { color: var(--ok); font-weight: 700; }
+  td.score.part { color: var(--warn); font-weight: 700; }
+  td.score.none { color: var(--bad); font-weight: 700; }
+  .attempts { display: grid; gap: 4px; }
+  details { background: var(--bg); border-radius: 6px; padding: 4px 8px; }
+  summary { cursor: pointer; font: 13px var(--mono); }
+  .rep { display: grid; gap: 6px; padding: 6px 0 4px; font-size: 13px; }
+  .rep p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .rep ul { margin: 0; padding-left: 18px; }
+  .step { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--fg); }
+  .step .n { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 6px;
+    border-radius: 50%; background: var(--accent); color: var(--surface); font-size: 12px; }
+  .rows { display: grid; border-top: 1px solid var(--rule); }
+  .row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 4px 12px; align-items: center;
+    padding: 8px 2px; border-bottom: 1px solid var(--rule); }
+  .row.off { color: var(--muted); }
+  .row .name { display: grid; min-width: 0; cursor: pointer; }
+  .row .note { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .more { grid-column: 2 / -1; background: var(--bg); border-radius: 6px; padding: 8px 10px; }
+  .link { background: none; color: var(--accent); padding: 2px 4px; font-weight: 500; font-size: 13px; }
+  .all { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+  .tag { font-size: 12px; white-space: nowrap; }
+  .tag.ok { color: var(--ok); } .tag.bad { color: var(--bad); }
+  td.cell, th.cell { text-align: center; }
+  td.cell button { width: 100%; padding: 6px 8px; border-radius: 6px; background: transparent; color: inherit;
+    font-weight: 700; border: 1px solid transparent; }
+  td.cell button:hover, td.cell button.on { border-color: var(--accent); }
+  td.cell.full { color: var(--ok); } td.cell.part { color: var(--warn); } td.cell.none { color: var(--bad); }
+  td.cell .left { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  tr.sum td { font-weight: 700; border-top: 2px solid var(--rule); }
+  tr.cost td { color: var(--muted); font-size: 13px; }
+  .past { display: flex; flex-wrap: wrap; gap: 6px; }
+  .past button { background: var(--bg); color: var(--fg); border: 1px solid var(--rule); padding: 6px 10px;
+    font: 13px var(--mono); }
+  .past button.on { border-color: var(--accent); }
+  .case-head { font-size: 15px; margin-top: 6px; }
+  pre { margin: 0; padding: 12px; background: var(--bg); border-radius: 6px; overflow-x: auto; font: 12px/1.5 var(--mono); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <nav><a href="/">← Investigate a run</a></nav>
+    <h1>Evaluate the investigator</h1>
+    <p class="sub">Runs the real investigator on saved copies of real runs, with real
+      model calls, and checks each report against the expected answer.</p>
+  </header>
+
+  <section class="card">
+    <h2 class="step"><span class="n">1</span>Pick cases</h2>
+    <div id="case-list"><div class="msg hint">Loading cases…</div></div>
+  </section>
+
+  <section class="card">
+    <h2 class="step"><span class="n">2</span>Pick models</h2>
+    <div id="controls" class="controls"></div>
+    <p class="muted" id="estimate" style="margin:0"></p>
+    <div><button id="run" type="button" disabled>Run</button></div>
+    <div id="status"></div>
+  </section>
+
+  <section class="card" id="results-section" hidden>
+    <h2 class="step"><span class="n">3</span>Results</h2>
+    <p class="muted" style="margin:0">Each cell is the checks passed (outcome, cited, cause) over every
+      attempt. Click a cell to see its attempts and reports.</p>
+    <div class="table-wrap"><table id="grid"></table></div>
+    <div id="cell"></div>
+  </section>
+
+  <section class="card">
+    <h2 class="step"><span class="n">4</span>Past runs</h2>
+    <div id="past" class="past"><span class="muted">Loading…</span></div>
+    <div id="past-view"></div>
+  </section>
+</main>
+
+<script>
+// Thin by design: the server runs and grades one attempt per request
+// (POST /eval/cases/{id}/attempts); the page keeps the tally and asks the
+// server to save it at the end. See docs/decisions/0011, TEST_PLAN cases 70-78.
+// Run content is evidence, never markup: everything is written with textContent.
+const $ = (id) => document.getElementById(id);
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+const show = (v) => (v === null || v === undefined || v === "" ? "—" : String(v));
+const short = (model) => model.split("/").pop();
+const OUTCOMES = { success: ["ok", "✓ success"], failure: ["bad", "✗ failure"],
+                   insufficient_evidence: ["unk", "? insufficient evidence"] };
+const pill = (outcome) => {
+  const [cls, label] = OUTCOMES[outcome] || ["unk", show(outcome)];
+  return el("span", "pill " + cls, label);
+};
+const CHECKS = ["outcome", "cited", "cause"];
+
+let data = null;      // GET /eval/cases
+let attempts = [];    // every attempt back from the server, in arrival order
+let run = null;       // what the last Run asked for: { cases, models, n }
+let cell = null;      // the open grid cell: { caseId, model }
+let running = false;
+
+// ---- 1. Pick cases (cases 71, 78) ----
+async function loadCases() {
+  try {
+    const r = await fetch("/eval/cases");
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) { $("case-list").replaceChildren(el("div", "msg error", "Can't load the cases. " + show(body.detail))); return; }
+    data = body;
+    renderCases();
+    renderControls();
+  } catch (e) {
+    $("case-list").replaceChildren(el("div", "msg error", "Can't reach this app's server. Is it still running?"));
+  }
+}
+
+function renderCases() {
+  const box = $("case-list");
+  box.replaceChildren();
+  if (!data.cases.length) { box.append(el("div", "msg hint", "No cases in evals/cases.json.")); return; }
+
+  const saved = data.cases.filter((c) => c.snapshot).length;
+  const top = el("label", "all");
+  const all = el("input"); all.type = "checkbox"; all.id = "all";
+  all.addEventListener("change", () => {
+    document.querySelectorAll("input.case:not(:disabled)").forEach((cb) => (cb.checked = all.checked));
+    updateEstimate();
+  });
+  const left = el("span"); left.append(all, " All");
+  top.append(left, el("span", "muted", data.cases.length + (data.cases.length === 1 ? " case · " : " cases · ") + saved + " saved"));
+
+  const rows = el("div", "rows");
+  for (const c of data.cases) rows.append(caseRow(c));
+  box.append(top, rows);
+}
+
+function caseRow(c) {
+  const row = el("div", "row" + (c.snapshot ? "" : " off"));
+  const cb = el("input");
+  cb.type = "checkbox"; cb.className = "case"; cb.value = c.id;
+  cb.disabled = !c.snapshot; cb.checked = c.snapshot;
+  cb.title = c.snapshot ? "" : "No saved copy yet";
+  cb.addEventListener("change", updateEstimate);
+
+  const name = el("div", "name");
+  const note = el("span", "note", c.note); note.dir = "auto"; note.title = c.note;
+  name.append(el("strong", null, c.id), note);
+  const tag = el("span", "tag " + (c.snapshot ? "ok" : "bad"), c.snapshot ? "✓ saved" : "✗ not saved");
+  const more = el("div", "more");
+  more.hidden = true;
+  const facts = el("dl", "facts");
+  const add = (k, v) => { const d = el("div"); d.append(el("dt", null, k), v); facts.append(d); };
+  const outcome = el("dd"); outcome.append(pill(c.outcome));
+  add("Expected outcome", outcome);
+  add("Must cite events", el("dd", null, c.must_cite.length ? c.must_cite.join(", ") : "—"));
+  const words = el("dd", null, c.cause_mentions.length ? c.cause_mentions.join(" · ") : "no cause");
+  words.dir = "auto";
+  add("Cause mentions any of", words);
+  add("Run", el("code", null, c.run_id));
+  more.append(facts);
+  if (!c.snapshot) more.append(el("p", "msg hint", "Save its copy first (tunnel open): uv run python -m evals.snapshot " + c.run_id));
+
+  const toggle = el("button", "link", "details ▸");
+  toggle.type = "button";
+  const flip = () => { more.hidden = !more.hidden; toggle.textContent = more.hidden ? "details ▸" : "details ▾"; };
+  toggle.addEventListener("click", flip);
+  name.addEventListener("click", flip);
+  row.append(cb, name, tag, toggle, more);
+  return row;
+}
+
+// ---- 2. Pick models ----
+function renderControls() {
+  const box = $("controls");
+  box.replaceChildren();
+  for (const m of data.models) {
+    const label = el("label");
+    const cb = el("input");
+    cb.type = "checkbox"; cb.value = m; cb.checked = true; cb.className = "model";
+    cb.addEventListener("change", updateEstimate);
+    label.append(cb, el("code", null, m));
+    box.append(label);
+  }
+  const label = el("label", null, "Attempts each ");
+  const n = el("input");
+  n.type = "number"; n.min = "1"; n.max = "10"; n.value = data.attempts; n.id = "attempts";
+  n.addEventListener("input", updateEstimate);
+  label.append(n);
+  box.append(label);
+  updateEstimate();
+}
+
+const chosenModels = () => [...document.querySelectorAll("input.model:checked")].map((c) => c.value);
+const chosenCases = () => {
+  const ids = new Set([...document.querySelectorAll("input.case:checked")].map((c) => c.value));
+  return data.cases.filter((c) => ids.has(c.id) && c.snapshot);
+};
+const attemptsWanted = () => Math.max(1, Math.min(10, parseInt($("attempts").value, 10) || 1));
+
+function updateEstimate() {
+  const cases = chosenCases().length, models = chosenModels().length, n = attemptsWanted();
+  const all = $("all"), boxes = [...document.querySelectorAll("input.case:not(:disabled)")];
+  if (all) {
+    const on = boxes.filter((b) => b.checked).length;
+    all.checked = boxes.length > 0 && on === boxes.length;
+    all.indeterminate = on > 0 && on < boxes.length;
+    all.disabled = running || !boxes.length;
+  }
+  const total = cases * models * n;
+  $("estimate").textContent = total
+    ? cases + (cases === 1 ? " case" : " cases") + " × " + models + (models === 1 ? " model" : " models")
+      + " × " + n + " = " + total + " real investigations (each makes paid model calls). Models run side by side."
+    : "Nothing to run: pick at least one saved case and one model.";
+  $("run").disabled = running || !total;
+}
+
+function lock(on) {
+  running = on;
+  document.querySelectorAll("input.case, input.model, #attempts").forEach((i) => {
+    i.disabled = on || (i.classList.contains("case") && !data.cases.find((c) => c.id === i.value).snapshot);
+  });
+  updateEstimate();
+}
+
+// ---- Running (cases 72-74, 78) ----
+async function runEval() {
+  run = { cases: chosenCases(), models: chosenModels(), n: attemptsWanted() };
+  attempts = [];
+  cell = null;
+  lock(true);
+  $("results-section").hidden = false;
+  renderGrid();
+  setStatus("hint", "Running… the grid fills in as each attempt finishes.");
+  const problems = [];
+  // One lane per model: its attempts go one after another, the models side by side.
+  await Promise.all(run.models.map(async (model) => {
+    for (const c of run.cases) {
+      for (let i = 0; i < run.n; i++) {
+        const res = await attempt(c.id, model);
+        if (res.problem) { problems.push(short(model) + ": " + res.problem); return; }  // stop this lane
+        attempts.push(res.attempt);
+        renderGrid();
+      }
+    }
+  }));
+  await save(problems);
+  lock(false);
+}
+
+async function attempt(caseId, model) {
+  try {
+    const r = await fetch("/eval/cases/" + encodeURIComponent(caseId) + "/attempts", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model }) });
+    const body = await r.json().catch(() => ({}));
+    if (r.ok) return { attempt: body };
+    return { problem: "HTTP " + r.status + ". " + show(body.detail) };
+  } catch (e) {
+    return { problem: "can't reach this app's server" };
+  }
+}
+
+async function save(problems) {
+  const lead = problems.length ? "Stopped early: " + problems.join(" · ") + ". " : "";
+  if (!attempts.length) { setStatus("error", lead + "No attempts finished, so nothing was saved."); return; }
+  try {
+    const r = await fetch("/eval/results", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attempts }) });
+    const body = await r.json().catch(() => ({}));
+    if (r.ok) {
+      setStatus(problems.length ? "error" : "done", lead + "Done. Results saved to " + body.path + ".");
+      await loadPast(body.path.split("/").pop());
+    } else setStatus("error", lead + "Couldn't save the results (HTTP " + r.status + "). " + show(body.detail));
+  } catch (e) {
+    setStatus("error", lead + "Couldn't save the results: can't reach this app's server.");
+  }
+}
+
+function setStatus(kind, text) { $("status").replaceChildren(el("div", "msg " + kind, text)); }
+
+// ---- 3. The grid: cases down the side, models across the top ----
+function avg(values) {
+  // Unknown if any value is unknown, the same rule as the saved file (case 67).
+  return !values.length || values.some((v) => v === null || v === undefined)
+    ? null : values.reduce((a, b) => a + b, 0) / values.length;
+}
+const mineOf = (caseId, model) => attempts.filter((a) => (!caseId || a.case_id === caseId) && a.model === model);
+const passed = (list) => list.reduce((s, a) => s + CHECKS.filter((k) => a.checks[k]).length, 0);
+const grade = (got, of) => (!of ? "" : got === of ? "full" : got ? "part" : "none");
+
+function renderGrid() {
+  const table = $("grid");
+  table.replaceChildren();
+  const head = el("tr");
+  head.append(el("th", null, "Case"));
+  for (const m of run.models) { const th = el("th", "cell", short(m)); th.title = m; head.append(th); }
+  table.append(head);
+
+  for (const c of run.cases) {
+    const tr = el("tr");
+    tr.append(el("td", null, c.id));
+    for (const m of run.models) {
+      const mine = mineOf(c.id, m), of = mine.length * CHECKS.length, got = passed(mine);
+      const td = el("td", "cell " + grade(got, of));
+      const b = el("button", cell && cell.caseId === c.id && cell.model === m ? "on" : "", of ? got + "/" + of : "…");
+      b.type = "button";
+      b.title = "Open " + c.id + " × " + m;
+      if (mine.length < run.n) b.append(el("span", "left", mine.length + " of " + run.n + " done"));
+      b.addEventListener("click", () => { cell = { caseId: c.id, model: m }; renderGrid(); });
+      td.append(b);
+      tr.append(td);
+    }
+    table.append(tr);
+  }
+
+  if (run.cases.length > 1) {
+    const sum = el("tr", "sum");
+    sum.append(el("td", null, "Total"));
+    for (const m of run.models) {
+      const mine = mineOf(null, m), of = mine.length * CHECKS.length, got = passed(mine);
+      sum.append(el("td", "cell " + grade(got, of), of ? got + "/" + of : "…"));
+    }
+    table.append(sum);
+  }
+  const cost = el("tr", "cost");
+  cost.append(el("td", null, "Avg cost · time"));
+  for (const m of run.models) {
+    const mine = mineOf(null, m), c = avg(mine.map((a) => a.cost)), t = avg(mine.map((a) => a.seconds));
+    cost.append(el("td", "cell", !mine.length ? "…" : (c === null ? "?" : "$" + c.toFixed(4)) + " · " + t.toFixed(1) + " s"));
+  }
+  table.append(cost);
+  renderCell();
+}
+
+function renderCell() {
+  const box = $("cell");
+  box.replaceChildren();
+  if (!cell) return;
+  const mine = mineOf(cell.caseId, cell.model);
+  const card = el("div", "card");
+  const head = el("div", "head");
+  head.append(el("strong", null, cell.caseId + " × " + short(cell.model)));
+  for (const k of CHECKS) {
+    const got = mine.filter((a) => a.checks[k]).length;
+    head.append(el("span", "pill " + (!mine.length ? "unk" : got === mine.length ? "ok" : got ? "unk" : "bad"),
+                   k + " " + got + "/" + mine.length));
+  }
+  card.append(head);
+  const list = el("div", "attempts");
+  mine.forEach((a, i) => list.append(attemptDetails(a, i)));
+  if (mine.length < run.n) list.append(el("span", "muted", (run.n - mine.length) + " still to come"));
+  card.append(list);
+  box.append(card);
+}
+
+function attemptDetails(a, i) {
+  const d = el("details");
+  const mark = (ok) => (ok ? "✓" : "✗");
+  const line = "#" + (i + 1) + "  " + (a.status === "done"
+    ? mark(a.checks.outcome) + " outcome " + mark(a.checks.cited) + " cited " + mark(a.checks.cause) + " cause"
+    : a.status + ": " + show(a.reason));
+  d.append(el("summary", null, line));
+  const rep = el("div", "rep");
+  if (a.report) {
+    const head = el("div", "head");
+    head.append(pill(a.report.outcome), el("span", "muted", a.model_calls + " model calls · " + a.seconds + " s"
+      + (a.cost === null || a.cost === undefined ? "" : " · $" + a.cost.toFixed(4))));
+    const summary = el("p", null, a.report.summary); summary.dir = "auto";
+    const ul = el("ul");
+    for (const f of a.report.findings) {
+      const li = el("li", null, "[" + f.kind + "] " + f.what + " · events " + (f.evidence.join(", ") || "—"));
+      li.dir = "auto";
+      ul.append(li);
+    }
+    const cause = el("p", null, "Cause: " + show(a.report.suspected_cause)); cause.dir = "auto";
+    rep.append(head, summary, ul, cause);
+  } else {
+    rep.append(el("p", "muted", "No report: " + show(a.reason)));
+  }
+  d.append(rep);
+  return d;
+}
+
+// ---- 4. Past runs (cases 76-77) ----
+async function loadPast(open) {
+  const box = $("past");
+  try {
+    const r = await fetch("/eval/results");
+    const list = await r.json().catch(() => []);
+    if (!r.ok) { box.replaceChildren(el("span", "msg error", "Can't list past runs (HTTP " + r.status + ").")); return; }
+    box.replaceChildren();
+    if (!list.length) { box.append(el("span", "muted", "None yet. Each Run saves one here.")); return; }
+    for (const { name } of list) {
+      // 2026-10-20-144735.md → 2026-10-20 14:47:35
+      const m = name.match(/^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})(\d{2})\.md$/);
+      const b = el("button", null, m ? m[1] + " " + m[2] + ":" + m[3] + ":" + m[4] : name);
+      b.type = "button"; b.dataset.name = name;
+      b.addEventListener("click", () => openPast(name));
+      box.append(b);
+    }
+    if (open) openPast(open);
+  } catch (e) {
+    box.replaceChildren(el("span", "msg error", "Can't reach this app's server."));
+  }
+}
+
+async function openPast(name) {
+  document.querySelectorAll("#past button").forEach((b) => b.classList.toggle("on", b.dataset.name === name));
+  const view = $("past-view");
+  try {
+    const r = await fetch("/eval/results/" + encodeURIComponent(name));
+    const body = await r.json().catch(() => ({}));
+    view.replaceChildren(r.ok ? drawResults(body.text) : el("div", "msg error", show(body.detail)));
+  } catch (e) {
+    view.replaceChildren(el("div", "msg error", "Can't reach this app's server."));
+  }
+}
+
+// The saved file is markdown (it's also read on GitHub). Draw its headings and
+// tables; any other line stays plain text (case 79). textContent only.
+function drawResults(text) {
+  const out = el("div", "rep");
+  const cells = (line) => line.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith("|")) {
+      const rows = [];
+      while (i < lines.length && lines[i].startsWith("|")) rows.push(lines[i++]);
+      i--;
+      const table = el("table");
+      rows.filter((r) => !/^\|[\s|:-]+\|$/.test(r.trim())).forEach((r, n) => {
+        const tr = el("tr");
+        cells(r).forEach((c, k) => {
+          const score = c.match(/^(\d+)\/(\d+)$/);
+          const td = el(n === 0 ? "th" : "td", k ? "cell" : null, !n && k ? c : !k && n ? short(c) : c);
+          if (!k && n) td.title = c;
+          if (n && score) td.className = "cell " + grade(+score[1], +score[2]);
+          tr.append(td);
+        });
+        table.append(tr);
+      });
+      const wrap = el("div", "table-wrap"); wrap.append(table);
+      out.append(wrap);
+    } else if (line.startsWith("## ")) {
+      out.append(el("strong", "case-head", line.slice(3).replace(/`/g, "")));
+    } else if (line.startsWith("# ")) {
+      out.append(el("p", "muted", line.slice(2)));
+    } else if (line.trim()) {
+      const p = el("p", null, line); p.dir = "auto";
+      out.append(p);
+    }
+  }
+  return out;
+}
+
+$("run").addEventListener("click", runEval);
+loadCases();
+loadPast();
+</script>
+</body>
+</html>
