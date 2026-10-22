@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 EVAL_CASES = ROOT / "evals" / "cases.json"
 EVAL_RUNS_DIR = ROOT / "data" / "eval-runs"
 EVAL_RESULTS_DIR = ROOT / "evals" / "results"
+EVAL_REPORTS_DIR = ROOT / "data" / "eval-reports"   # git-ignored: reports quote the runs
 # The cheap models the eval compares, and how many attempts each gets.
 EVAL_MODELS = ["deepseek/deepseek-v4.1-flash", "qwen/qwen3.7-flash", "z-ai/glm-5.3-flash"]
 EVAL_ATTEMPTS = 3

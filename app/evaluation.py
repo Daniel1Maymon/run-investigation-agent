@@ -13,7 +13,7 @@ from pydantic import BaseModel, ValidationError
 from app import config, investigator
 from app.adapters import openclaw
 from app.models.base import Model
-from app.schema import Investigation, Report
+from app.schema import Investigation, Report, Step
 
 
 class Case(BaseModel):
@@ -31,7 +31,8 @@ class Checks(BaseModel):
     cause: bool
 
 class Attempt(BaseModel):
-    """One graded investigation. The report is for the page only, never saved."""
+    """One graded investigation. The report and steps go to the page and to
+    data/eval-reports/, never to the public results file (decision 0015)."""
     case_id: str
     model: str
     status: str
@@ -41,6 +42,7 @@ class Attempt(BaseModel):
     seconds: float
     model_calls: int
     report: Report | None = None
+    steps: list[Step] = []
 
 class CasesBroken(Exception):
     """cases.json can't be read or a case is invalid."""
@@ -123,7 +125,7 @@ def run_attempt(case: Case, model: Model) -> Attempt:
         inv = investigator.investigate(client=client, model=model, run_id=case.run_id)
     return Attempt(case_id=case.id, model=model.name, status=inv.status, reason=inv.reason,
                    checks=grade(inv=inv, case=case), cost=inv.cost, seconds=inv.seconds,
-                   model_calls=inv.model_calls, report=inv.report)
+                   model_calls=inv.model_calls, report=inv.report, steps=inv.steps)
 
 
 # ---- The results table ----
@@ -156,10 +158,25 @@ def results_markdown(attempts: list[Attempt], when: datetime) -> str:
         lines.append("")
     return "\n".join(lines)
 
+def reports_json(attempts: list[Attempt], when: datetime) -> str:
+    """Every attempt in full, numbered per case and model (case 85). Quotes the runs: data/ only."""
+    seen: dict[tuple[str, str], int] = {}
+    rows = []
+    for a in attempts:
+        key = (a.case_id, a.model)
+        seen[key] = seen.get(key, 0) + 1
+        rows.append({"attempt": seen[key], **a.model_dump()})
+    return json.dumps({"when": when.isoformat(timespec="seconds"), "attempts": rows},
+                      ensure_ascii=False, indent=1)
+
 def write_results(attempts: list[Attempt], when: datetime | None = None) -> Path:
+    """The public scores file, and the reports behind it under the same name (decision 0015)."""
     when = when or datetime.now()
+    name = f"{when:%Y-%m-%d-%H%M%S}"
+    config.EVAL_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    (config.EVAL_REPORTS_DIR / f"{name}.json").write_text(reports_json(attempts=attempts, when=when))
     config.EVAL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = config.EVAL_RESULTS_DIR / f"{when:%Y-%m-%d-%H%M%S}.md"
+    path = config.EVAL_RESULTS_DIR / f"{name}.md"
     path.write_text(results_markdown(attempts=attempts, when=when))
     return path
 

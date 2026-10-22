@@ -60,8 +60,11 @@ with each finding pointing at the events behind it.
 
 <img src="docs/img/2-report.png" width="640" alt="The investigation report: failure, findings with event ids, cause, next step">
 
-**3. Check it isn't luck.** This run is one of 10 eval cases. Each model
-investigates each case 3 times, and code grades every report.
+**3. Check it isn't luck.** The investigator checks OpenClaw's agent; the
+eval checks the investigator. This run is one of 10 eval cases. For each one
+we wrote down beforehand what a right report says (the outcome, the events it
+must cite, the cause). Each model investigates each case 3 times, and code
+compares every report with that answer.
 deepseek and glm get this case right every time; qwen gets it wrong every time.
 
 <img src="docs/img/3-eval.png" width="640" alt="Eval results for the first three cases, per model">

@@ -1,7 +1,8 @@
-"""TEST_PLAN.md cases 61-67, 70-73 and 76-77: the eval, with fake models and saved copies
-in a temporary folder. Cases 68, 74 and 78 use real models and are verified live."""
+"""TEST_PLAN.md cases 61-67, 70-73, 76-77 and 85-87: the eval, with fake models and saved
+copies in a temporary folder. Cases 68, 74, 78 and 88 use real models and are verified live."""
 import json
 from datetime import datetime
+from pathlib import Path
 
 import httpx
 import pytest
@@ -11,7 +12,7 @@ from app import config, evaluation
 from app.adapters import openclaw
 from app.main import app, model_maker
 from app.models.base import ModelError
-from app.schema import Investigation, Report
+from app.schema import Investigation, Report, Step
 from evals import run_eval
 from tests.conftest import REPORT, FakeModel, OK_RUN, ask, fake_viewer, refused, submit
 
@@ -30,6 +31,7 @@ def eval_dirs(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "EVAL_CASES", cases)
     monkeypatch.setattr(config, "EVAL_RUNS_DIR", tmp_path / "eval-runs")
     monkeypatch.setattr(config, "EVAL_RESULTS_DIR", tmp_path / "results")
+    monkeypatch.setattr(config, "EVAL_REPORTS_DIR", tmp_path / "data" / "eval-reports")
     monkeypatch.setattr(config, "ROOT", tmp_path)
     return tmp_path
 
@@ -287,3 +289,54 @@ def test_case77_refuses_other_names(eval_dirs, eval_api):
     assert api.get("/eval/results/cases.json").status_code == 404
     assert api.get("/eval/results/..%2Fcases.json").status_code == 404
     assert evaluation.read_results(name="../cases.json") is None
+
+# ---- The reports behind the scores (cases 85-87, decision 0015) ----
+
+def _attempt(model, status="done", report=RIGHT):
+    return evaluation.Attempt(
+        case_id="c1", model=model, status=status, cost=0.001, seconds=1.0, model_calls=2,
+        reason=None if status == "done" else "model call failed: overloaded",
+        checks=evaluation.Checks(outcome=True, cited=True, cause=True),
+        report=Report.model_validate(report) if report else None,
+        steps=[Step(tool="get_run", result_chars=100)])
+
+# Case 85
+
+def test_case85_write_results_saves_the_reports(eval_dirs):
+    attempts = [_attempt(model="a"), _attempt(model="b"), _attempt(model="a"),
+                _attempt(model="b", status="error", report=None)]
+    md = evaluation.write_results(attempts=attempts, when=datetime(2026, 10, 21, 15, 59, 39))
+    saved = config.EVAL_REPORTS_DIR / "2026-10-21-155939.json"
+    assert md.name == "2026-10-21-155939.md" and saved.is_file()
+    rows = json.loads(saved.read_text())["attempts"]
+    assert [(r["model"], r["attempt"]) for r in rows] == [("a", 1), ("b", 1), ("a", 2), ("b", 2)]
+    assert rows[0]["case_id"] == "c1" and rows[0]["checks"]["cause"] is True
+    assert rows[0]["report"]["summary"] == RIGHT["summary"]
+    assert rows[0]["steps"][0]["tool"] == "get_run"
+    assert rows[3]["report"] is None and rows[3]["reason"] == "model call failed: overloaded"
+    # The public file still holds scores only.
+    assert RIGHT["summary"] not in md.read_text()
+
+# Case 86
+
+def test_case86_attempt_carries_its_steps(saved):
+    model = FakeModel(ask(name="get_run"), ask(name="get_event", event_id=5), submit(report=RIGHT))
+    attempt = evaluation.run_attempt(case=_case(), model=model)
+    assert [s.tool for s in attempt.steps] == ["get_run", "get_event", "submit_report"]
+    assert attempt.steps[1].input == {"event_id": 5}
+
+def test_case86_page_round_trip_saves_steps(saved, eval_api):
+    api, _ = eval_api
+    attempt = api.post("/eval/cases/c1/attempts", json={"model": MODEL}).json()
+    assert [s["tool"] for s in attempt["steps"]] == ["get_run", "submit_report"]
+    path = api.post("/eval/results", json={"attempts": [attempt]}).json()["path"]
+    saved_file = config.EVAL_REPORTS_DIR / Path(path).with_suffix(".json").name
+    row = json.loads(saved_file.read_text())["attempts"][0]
+    assert row["report"]["outcome"] == "failure"
+    assert [s["tool"] for s in row["steps"]] == ["get_run", "submit_report"]
+
+# Case 87
+
+def test_case87_reports_folder_is_under_ignored_data():
+    assert config.EVAL_REPORTS_DIR == config.ROOT / "data" / "eval-reports"
+    assert "data/" in (config.ROOT / ".gitignore").read_text().splitlines()

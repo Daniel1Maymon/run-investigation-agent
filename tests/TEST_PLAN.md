@@ -1121,3 +1121,66 @@ worked. See decision 0013.
   "what the user got" too strictly (for example, NO_REPLY = the user got
   nothing). The three good runs' outcome scores show it.
 - **Verified live only**, because it needs the real models.
+
+## Step 5 (part 2): keep the eval's reports
+
+The results file keeps scores only, and every report behind them was thrown
+away. A score like "cause 1/3" said *that* two reports failed, never *what*
+they said, so there was no way to tell a model mistake from a check mistake.
+Now every report the eval produces is saved too, next to its results file but
+in the git-ignored `data/` folder: reports quote the run, and the repo is
+public. See decision 0015.
+
+- **Where:** `data/eval-reports/<date>-<time>.json`, the same name as the
+  results file (`evals/results/<date>-<time>.md`), so the two match.
+- **What, per attempt:** case, model, attempt number (1, 2, 3 for that case and
+  model), status and reason, the 3 checks, cost, seconds, model calls, the
+  report, and the steps (which tools it called, which events it opened).
+- **Both ways of running the eval save it:** the terminal script and the page
+  both end in `write_results`, which now writes both files. The page already
+  holds each attempt's report; it now gets the steps too, and sends them back
+  with the attempts.
+
+### Case 85 — `write_results` saves the reports
+- **Input:** 4 attempts: case c1 × model "a" twice, model "b" once, and one
+  attempt with status `error` and no report.
+- **Expected:**
+  - `data/eval-reports/<name>.json` exists, with the same `<name>` as the
+    results `.md`.
+  - It holds all 4 attempts in order, each with its case, model, attempt
+    number (a: 1, 2; b: 1), checks, report and steps.
+  - The `error` attempt is saved too, with `report: null` and its reason.
+  - The `.md` still holds no report text (case 67).
+- **Failure modes:** the reports land inside the repo (outside `data/`); the
+  two files get different names.
+- **Verified:** automated (`test_eval.py`).
+
+### Case 86 — an attempt carries its steps
+- **Input:** `run_attempt` with a fake model that calls `get_run`,
+  `get_event` 5, then `submit_report`; also `POST /eval/cases/c1/attempts`.
+- **Expected:** the attempt's `steps` are those 3 tools, in order, with
+  `get_event`'s input `{"event_id": 5}`. The endpoint returns them, and
+  `POST /eval/results` with that attempt saves them.
+- **Verified:** automated (`test_eval.py`).
+
+### Case 87 — the reports folder is git-ignored
+- **Input:** the default `config.EVAL_REPORTS_DIR`.
+- **Expected:** it is `data/eval-reports` under the repo root, inside the
+  ignored `data/` folder.
+- **Verified:** automated for the path (`test_eval.py`); live with
+  `git check-ignore` that git ignores it.
+
+### Case 88 — live: a real attempt is saved
+- **Input:** one real attempt (deepseek, `email-no-tool`), then
+  `write_results`.
+- **Expected:** the `.json` holds the real report and steps; `git status`
+  doesn't show it.
+- **Verified live only**, because it needs a real model.
+- **Verified live:** 2026-10-21, deepseek on `email-no-tool` (saved copy, no
+  tunnel): status `done`, all 3 checks passed.
+  `data/eval-reports/2026-10-21-214748.json` holds attempt 1 with its report
+  (outcome `failure`) and 7 steps: `get_run`, `get_event` 1, 4, 5, 3, then
+  `submit_report` twice (the first was rejected, which the scores alone never
+  showed). `git check-ignore` matched it to `data/` in `.gitignore`, and
+  `git status` doesn't list it. The run also wrote the 1-case scores file
+  `evals/results/2026-10-21-214748.md`.

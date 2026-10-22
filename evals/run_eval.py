@@ -29,4 +29,6 @@ if __name__ == "__main__":
     names = sys.argv[2:] or config.EVAL_MODELS
     done = main(attempts=n, model_names=names)
     if done:
-        print(f"written {evaluation.write_results(attempts=done)}")
+        path = evaluation.write_results(attempts=done)
+        print(f"written {path}")
+        print(f"reports {config.EVAL_REPORTS_DIR / path.with_suffix('.json').name}")

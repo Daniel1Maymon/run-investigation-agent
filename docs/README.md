@@ -46,3 +46,6 @@ All three were last brought up to date on 2026-10-19 (decisions 0001–0010).
     and the instructions, to leave the cause empty when the task succeeded
   - `0014-outcome-is-what-the-user-got.md` — the model is told the outcome
     is about what the user got, not whether the agent behaved well
+  - `0015-keep-the-eval-reports.md` — every report the eval produces is saved
+    with its steps to the git-ignored `data/eval-reports/`, next to the
+    public scores file
