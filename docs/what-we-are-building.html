@@ -146,6 +146,9 @@ table.files td:first-child { white-space: nowrap; }
       <tr><td><code>POST /runs/&lt;id&gt;/investigate</code></td><td>Runs an investigation and returns the report and the steps</td></tr>
       <tr><td><code>GET /health</code></td><td>“Are you up, and can you reach the viewer?” Tunnel closed → “degraded”, plus a hint to run <code>dash</code></td></tr>
       <tr><td><code>GET /runs/&lt;id&gt;/overview</code><br><code>GET /runs/&lt;id&gt;/events/&lt;n&gt;</code></td><td>For debugging: exactly what the <code>get_run</code> and <code>get_event</code> tools give the model</td></tr>
+      <tr><td><code>GET /eval</code></td><td>The eval page: pick cases and models, run them, read past results</td></tr>
+      <tr><td><code>GET /eval/cases</code><br><code>POST /eval/cases/&lt;id&gt;/attempts</code></td><td>The cases, and one graded investigation of one case by one model</td></tr>
+      <tr><td><code>GET /eval/results</code><br><code>POST /eval/results</code></td><td>The saved results files: list, read one, save a new one</td></tr>
     </table>
   </div>
   <p>A wrong run ID gets “not found” (404). A closed tunnel gets “viewer unavailable” (503) with a hint to run <code>dash</code>.</p>
@@ -162,15 +165,19 @@ table.files td:first-child { white-space: nowrap; }
       <tr><td><code>app/models/</code></td><td>One adapter per model provider: OpenRouter, Claude</td></tr>
       <tr><td><code>app/config.py</code></td><td>Settings: where the viewer is, which model, the limits</td></tr>
       <tr><td><code>app/logs.py</code></td><td>Where the investigator log goes</td></tr>
-      <tr><td><code>tests/</code></td><td>99 automated checks for the cases in <code>tests/TEST_PLAN.md</code>, with a fake viewer and a fake model</td></tr>
+      <tr><td><code>app/evaluation.py</code><br><code>app/ui/eval.html</code></td><td>The eval: load the cases, replay a saved run, grade the report, write the results</td></tr>
+      <tr><td><code>evals/</code></td><td>The cases (<code>cases.json</code>), the scripts that save a run and run the eval, and the results files</td></tr>
+      <tr><td><code>tests/</code></td><td>138 automated checks for the cases in <code>tests/TEST_PLAN.md</code>, with a fake viewer and a fake model</td></tr>
       <tr><td><code>docs/decisions/</code></td><td>Why things are the way they are, one file per decision</td></tr>
     </table>
   </div>
 
   <h2><span class="n">7</span>What comes next</h2>
+  <p>The evaluation is built: 10 cases from real runs, each run 3 times on three cheap models, scored by checks in code. What's left:</p>
   <ol>
+    <li><b>Fix what the eval found</b>: the model is told how to judge the outcome and when to leave the cause empty, and the eval is run again to see if it helped.</li>
+    <li><b>A stricter cited check</b>: today every model cites the right events on every case, so the check tells nothing apart. Each case will also list events that should <i>not</i> be cited.</li>
     <li><b>Visibility, the rest</b>: show tokens and cost on the page, not only in the log.</li>
-    <li><b>Evaluation</b>: test it on a run that worked, a run that failed, and a run with missing data, on all three cheap models. We write the expected answers first.</li>
   </ol>
 </main>
 </body>

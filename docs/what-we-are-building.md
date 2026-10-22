@@ -80,6 +80,9 @@ A real example (run `800dfeb3`, October 19): 8 model calls, 56 seconds, less tha
 | `POST /runs/<id>/investigate` | Runs an investigation and returns the report and the steps |
 | `GET /health` | "Are you up, and can you reach the viewer?" Tunnel closed → "degraded", plus a hint to run `dash` |
 | `GET /runs/<id>/overview`, `GET /runs/<id>/events/<n>` | For debugging: exactly what the `get_run` and `get_event` tools give the model |
+| `GET /eval` | The eval page: pick cases and models, run them, read past results |
+| `GET /eval/cases`, `POST /eval/cases/<id>/attempts` | The cases, and one graded investigation of one case by one model |
+| `GET /eval/results`, `POST /eval/results` | The saved results files: list, read one, save a new one |
 
 A wrong run ID gets "not found" (404). A closed tunnel gets "viewer unavailable" (503) with a hint to run `dash`.
 
@@ -96,11 +99,14 @@ A wrong run ID gets "not found" (404). A closed tunnel gets "viewer unavailable"
 | `app/models/` | One adapter per model provider: OpenRouter, Claude |
 | `app/config.py` | Settings: where the viewer is, which model, the limits |
 | `app/logs.py` | Where the investigator log goes |
-| `tests/` | 99 automated checks for the cases in `tests/TEST_PLAN.md`, with a fake viewer and a fake model |
+| `app/evaluation.py`, `app/ui/eval.html` | The eval: load the cases, replay a saved run, grade the report, write the results |
+| `evals/` | The cases (`cases.json`), the scripts that save a run and run the eval, and the results files |
+| `tests/` | 138 automated checks for the cases in `tests/TEST_PLAN.md`, with a fake viewer and a fake model |
 | `docs/decisions/` | Why things are the way they are, one file per decision |
 
 ## 7. What comes next
 
-These are the remaining steps from the design doc:
-1. **Visibility, the rest:** show tokens and cost on the page, not only in the log.
-2. **Evaluation:** test it on a run that worked, a run that failed, and a run with missing data, on all three cheap models. We write the expected answers first.
+The evaluation is built: 10 cases from real runs, each run 3 times on three cheap models, scored by checks in code. What's left:
+1. **Fix what the eval found:** the model is told how to judge the outcome and when to leave the cause empty, and the eval is run again to see if it helped.
+2. **A stricter cited check:** today every model cites the right events on every case, so the check tells nothing apart. Each case will also list events that should *not* be cited.
+3. **Visibility, the rest:** show tokens and cost on the page, not only in the log.

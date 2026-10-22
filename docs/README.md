@@ -44,3 +44,5 @@ All three were last brought up to date on 2026-10-19 (decisions 0001–0010).
     got, and an empty run is a failure only if it stopped before doing anything
   - `0013-empty-cause-on-good-runs.md` — the model is told, in the schema
     and the instructions, to leave the cause empty when the task succeeded
+  - `0014-outcome-is-what-the-user-got.md` — the model is told the outcome
+    is about what the user got, not whether the agent behaved well

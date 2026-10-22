@@ -868,7 +868,10 @@ See docs/decisions/0011.
   - The scores are the finding, not a pass/fail of this case. We read the
     reports of any failed checks, to see whether the model or the case is
     wrong.
-- **Verified live:** not yet.
+- **Verified live:** 2026-10-20, `evals/results/2026-10-20-144735.md`: 9
+  investigations, all `done`, each model with a real dollar cost. deepseek 9/9
+  checks, glm 6/9 (cause 0/3), qwen 7/9. The run read only the saved copy.
+  Case 80 then ran the same script on all 10 cases.
 
 ### Case 69 — the investigation returns its total cost
 - **Input:** an investigation whose model replies report costs of 0.001 and
@@ -1004,7 +1007,7 @@ cases is a page-only change. Past runs need two small read-only endpoints.
   `evals/results/2026-10-20-152133.md`, which appeared first in Past runs and
   opened to its table. Found and fixed during the check: the empty Results card
   showed before any run (`.card`'s `display: grid` overrode `hidden`), and
-  "1 cases"
+  "1 cases" (now "1 case").
 
 ### Case 79 — a past run is drawn as a table, not raw text
 - **Input:** click a date under Past runs.
@@ -1086,3 +1089,35 @@ worked. See decision 0013.
   same. The old code in a separate copy gave failure 3 times out of 4, so the
   new wording caused it. glm's `no-reply-in-thinking` went 3/3 → 0/3 (not yet
   checked whether this is the wording or chance). Not accepted yet.
+
+### Case 83 — the model is told the outcome is about what the user got
+- **Why:** case 82 showed qwen reading an honest "I have no email tool" as a
+  success: the agent behaved well, so the run looked fine. The outcome is about
+  the user, not the agent's manners. See decision 0014.
+- **Input:** the `submit_report` tool schema and the investigator's instructions.
+- **Expected:** the `outcome` description says to judge by what the user got,
+  not by whether the agent behaved well. The instructions say the same in one
+  line, both ways round: an honest "I can't do that" still leaves the task
+  undone, and an error logged by the harness doesn't undo what the user did get.
+  Case 81's line about the cause is still there.
+- **Failure modes:** only one of the two places says it (the same rule as case
+  81); the wording names a case from the eval, which would teach the test
+  instead of the rule.
+- **Verified:** automated (`test_investigator.py`) for the wording. Whether
+  models follow it is case 84.
+
+### Case 84 — live: the eval after the outcome sentence
+- **Input:** all 10 cases × 3 models × 3 attempts, same as cases 80 and 82,
+  after case 83.
+- **Expected:**
+  - qwen's outcome on `email-no-tool` goes back up from 0/3 (it was 3/3 before
+    decision 0013).
+  - deepseek's cause on the good runs stays at 6/9 or better (case 82).
+  - The two cases this sentence also speaks to, `birthdays-declined` (honest
+    refusal) and `no-reply-in-thinking` (harness error, user fine), don't get
+    worse.
+  - No other check drops by more than 1 attempt.
+- **Failure modes:** a model now calls a good run a failure because it reads
+  "what the user got" too strictly (for example, NO_REPLY = the user got
+  nothing). The three good runs' outcome scores show it.
+- **Verified live only**, because it needs the real models.

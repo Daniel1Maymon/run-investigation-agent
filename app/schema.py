@@ -66,7 +66,8 @@ class Finding(BaseModel):
 class Report(BaseModel):
     """Your report on the run. Checked by the loop: an invalid one comes back as an error."""
     outcome: Literal["success", "failure", "insufficient_evidence"] = Field(
-        description="Was the run's task completed?")
+        description="Was the run's task completed? Judge by what the user got, "
+                    "not by whether the agent behaved well.")
     summary: str = Field(description="1-3 sentences.")
     findings: list[Finding]
     suspected_cause: str | None = Field(

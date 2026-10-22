@@ -323,3 +323,15 @@ def test_case81_told_to_leave_the_cause_empty_on_success():
     told = spec.parameters["properties"]["suspected_cause"]["description"]
     assert "Null if the task succeeded" in told and "findings" in told
     assert "succeeded, leave suspected_cause null" in investigator.INSTRUCTIONS
+
+
+# Case 83
+
+def test_case83_told_the_outcome_is_what_the_user_got():
+    spec, = [t for t in investigator.TOOLS if t.name == "submit_report"]
+    told = spec.parameters["properties"]["outcome"]["description"]
+    assert "what the user got" in told and "behaved well" in told
+    assert "what the user got, not whether the agent behaved well" in investigator.INSTRUCTIONS
+    assert "I can't do that" in investigator.INSTRUCTIONS
+    assert "doesn't undo a result the user did get" in investigator.INSTRUCTIONS
+    assert "succeeded, leave suspected_cause null" in investigator.INSTRUCTIONS
